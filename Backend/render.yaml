@@ -1,0 +1,18 @@
+# Optional Render Blueprint. You can also create the service by hand (see README).
+services:
+  - type: web
+    name: almus-backend
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: APP_ACCESS_TOKEN
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-flash-latest
+      - key: TRUST_PROXY
+        value: "true"

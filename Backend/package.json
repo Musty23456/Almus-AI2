@@ -1,0 +1,13 @@
+{
+  "name": "almus-backend",
+  "version": "0.1.0",
+  "description": "Secure Gemini proxy for the ALMUS AI Android app (no runtime dependencies).",
+  "type": "module",
+  "main": "index.js",
+  "private": true,
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test"
+  }
+}
