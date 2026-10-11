@@ -2,6 +2,7 @@ import 'package:almus_ai/app.dart';
 import 'package:almus_ai/controllers/chat_controller.dart';
 import 'package:almus_ai/models/robot_state.dart';
 import 'package:almus_ai/services/demo_chat_service.dart';
+import 'package:almus_ai/services/settings_store.dart';
 import 'package:almus_ai/utils/formatters.dart';
 import 'package:almus_ai/widgets/robot_avatar.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 Widget _app() => AlmusApp(
       showSplash: false,
       chatService: DemoChatService(thinkingDelay: Duration.zero),
+      settingsStore: MemorySettingsStore(),
     );
 
 /// Gives the test a tall phone-like screen so list items are all built.
@@ -33,7 +35,7 @@ void main() {
 
   testWidgets('splash screen leads to the home screen', (tester) async {
     _usePhoneScreen(tester);
-    await tester.pumpWidget(const AlmusApp());
+    await tester.pumpWidget(AlmusApp(settingsStore: MemorySettingsStore()));
     expect(find.text('ALMUS AI'), findsOneWidget);
 
     await tester.pump(const Duration(milliseconds: 2600));
@@ -149,7 +151,7 @@ void main() {
     await tester.pump();
     await _openTab(tester, Icons.settings_outlined);
 
-    expect(find.text('0.1.0'), findsOneWidget);
+    expect(find.text('0.2.0'), findsOneWidget);
     expect(find.text('DEMO MODE (simulated)'), findsOneWidget);
   });
 
