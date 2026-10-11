@@ -39,7 +39,12 @@ jobs:
             rm -rf test
             cp -r /tmp/test.bak test
           fi
-          sed -i 's/android:label="[^"]*"/android:label="ALMUS AI"/' android/app/src/main/AndroidManifest.xml
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          sed -i 's/android:label="[^"]*"/android:label="ALMUS AI"/' "$MANIFEST"
+          if ! grep -q 'android.permission.INTERNET' "$MANIFEST"; then
+            sed -i 's|<application|<uses-permission android:name="android.permission.INTERNET"/>\n    <application|' "$MANIFEST"
+          fi
+          grep -n 'android:label\|INTERNET' "$MANIFEST"
 
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
