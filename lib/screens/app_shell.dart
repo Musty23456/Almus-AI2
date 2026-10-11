@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../controllers/chat_controller.dart';
+import '../controllers/settings_controller.dart';
+import '../services/backend_client.dart';
 import '../services/chat_service.dart';
 import 'chat_screen.dart';
 import 'home_screen.dart';
@@ -13,11 +15,15 @@ class AppShell extends StatefulWidget {
     super.key,
     required this.themeMode,
     required this.onThemeModeChanged,
+    required this.settings,
+    required this.backend,
     this.chatService,
   });
 
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode> onThemeModeChanged;
+  final SettingsController settings;
+  final BackendClient backend;
   final ChatService? chatService;
 
   @override
@@ -25,7 +31,10 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  late final ChatController _chat = ChatController(service: widget.chatService);
+  late final ChatController _chat = ChatController(
+    service: widget.chatService,
+    engineChanges: widget.settings,
+  );
   int _index = 0;
 
   @override
@@ -44,6 +53,8 @@ class _AppShellState extends State<AppShell> {
       _ => SettingsScreen(
           themeMode: widget.themeMode,
           onThemeModeChanged: widget.onThemeModeChanged,
+          settings: widget.settings,
+          backend: widget.backend,
         ),
     };
   }

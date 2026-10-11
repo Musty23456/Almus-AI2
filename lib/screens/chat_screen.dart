@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../controllers/chat_controller.dart';
 import '../models/chat_message.dart';
@@ -91,7 +92,7 @@ class _ChatScreenState extends State<ChatScreen> {
               canClear: messages.isNotEmpty,
               onClear: _confirmClear,
             ),
-            const _DemoBanner(),
+            _EngineBanner(isDemo: widget.chat.isDemo),
             Expanded(
               child: messages.isEmpty && !busy
                   ? Center(
@@ -99,8 +100,9 @@ class _ChatScreenState extends State<ChatScreen> {
                         child: EmptyState(
                           icon: Icons.forum_outlined,
                           title: 'Start a conversation',
-                          message:
-                              'Say hello or ask anything. Replies are simulated in DEMO MODE so you can test the interface. Tap a suggestion to try it.',
+                          message: widget.chat.isDemo
+                              ? 'Say hello or ask anything. Replies are simulated in DEMO MODE so you can test the interface. Tap a suggestion to try it.'
+                              : 'Ask me anything. Replies come from Gemini through your backend. Tap a suggestion to start.',
                           child: Wrap(
                             alignment: WrapAlignment.center,
                             spacing: 8,
@@ -108,7 +110,8 @@ class _ChatScreenState extends State<ChatScreen> {
                             children: <Widget>[
                               _suggestion('Say hello', 'Hello Almus!'),
                               _suggestion('What can you do?', 'What can you do?'),
-                              _suggestion('Test error state', '/error'),
+                              if (widget.chat.isDemo)
+                                _suggestion('Test error state', '/error'),
                             ],
                           ),
                         ),
@@ -120,7 +123,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       itemCount: messages.length + (busy ? 1 : 0),
                       itemBuilder: (BuildContext context, int index) {
                         if (busy && index == 0) {
-                          return const _TypingBubble();
+                          return _TypingBubble(isDemo: widget.chat.isDemo);
                         }
                         final int i =
                             messages.length - 1 - (busy ? index - 1 : index);
@@ -134,6 +137,7 @@ class _ChatScreenState extends State<ChatScreen> {
             _InputBar(
               controller: _input,
               onSend: busy ? null : _send,
+              isDemo: widget.chat.isDemo,
             ),
           ],
         );
@@ -201,39 +205,49 @@ class _ChatHeader extends StatelessWidget {
   }
 }
 
-class _DemoBanner extends StatelessWidget {
-  const _DemoBanner();
+class _EngineBanner extends StatelessWidget {
+  const _EngineBanner({required this.isDemo});
+
+  final bool isDemo;
 
   @override
   Widget build(BuildContext context) {
-    const Color purple = AlmusColors.purple;
+    final Color color = isDemo ? AlmusColors.purple : AlmusColors.mint;
+    final bool isLight = Theme.of(context).brightness == Brightness.light;
+    final Color labelColor =
+        isLight ? Color.lerp(color, Colors.black, 0.4)! : color;
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: purple.withValues(alpha: 0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: purple.withValues(alpha: 0.5)),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
       child: Row(
         children: <Widget>[
-          const Icon(Icons.science_outlined, size: 18, color: purple),
+          Icon(
+            isDemo ? Icons.science_outlined : Icons.bolt_rounded,
+            size: 18,
+            color: labelColor,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text.rich(
               TextSpan(
                 children: <InlineSpan>[
-                  const TextSpan(
-                    text: 'DEMO MODE',
+                  TextSpan(
+                    text: isDemo ? 'DEMO MODE' : 'LIVE MODE',
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
                       letterSpacing: 1.2,
-                      color: purple,
+                      color: labelColor,
                     ),
                   ),
-                  const TextSpan(
-                    text:
-                        ' — replies are simulated on this device. Real Gemini integration arrives in Phase 2.',
+                  TextSpan(
+                    text: isDemo
+                        ? ' — replies are simulated on this device. Add your backend address in Settings to use Gemini.'
+                        : ' — replies come from Gemini through your backend. Free-tier limits may apply.',
                   ),
                 ],
               ),
@@ -247,7 +261,9 @@ class _DemoBanner extends StatelessWidget {
 }
 
 class _TypingBubble extends StatelessWidget {
-  const _TypingBubble();
+  const _TypingBubble({required this.isDemo});
+
+  final bool isDemo;
 
   @override
   Widget build(BuildContext context) {
@@ -272,7 +288,7 @@ class _TypingBubble extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             Text(
-              'Almus is thinking… (demo)',
+              isDemo ? 'Almus is thinking… (demo)' : 'Almus is thinking…',
               style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13),
             ),
           ],
@@ -283,10 +299,15 @@ class _TypingBubble extends StatelessWidget {
 }
 
 class _InputBar extends StatelessWidget {
-  const _InputBar({required this.controller, required this.onSend});
+  const _InputBar({
+    required this.controller,
+    required this.onSend,
+    required this.isDemo,
+  });
 
   final TextEditingController controller;
   final VoidCallback? onSend;
+  final bool isDemo;
 
   @override
   Widget build(BuildContext context) {
@@ -311,11 +332,14 @@ class _InputBar extends StatelessWidget {
               controller: controller,
               minLines: 1,
               maxLines: 4,
+              inputFormatters: <TextInputFormatter>[
+                LengthLimitingTextInputFormatter(4000),
+              ],
               textCapitalization: TextCapitalization.sentences,
               textInputAction: TextInputAction.send,
               onSubmitted: (String _) => onSend?.call(),
               decoration: InputDecoration(
-                hintText: 'Message Almus (demo)…',
+                hintText: isDemo ? 'Message Almus (demo)…' : 'Message Almus…',
                 filled: true,
                 fillColor: cs.surface.withValues(alpha: 0.92),
                 contentPadding: const EdgeInsets.symmetric(

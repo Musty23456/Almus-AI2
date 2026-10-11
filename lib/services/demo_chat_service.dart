@@ -1,3 +1,4 @@
+import '../models/chat_message.dart';
 import 'chat_service.dart';
 
 /// Phase 1 engine: scripted replies for testing the interface.
@@ -23,7 +24,10 @@ class DemoChatService implements ChatService {
   bool get isDemo => true;
 
   @override
-  Future<String> reply(String userMessage) async {
+  Future<String> reply(
+    String userMessage, {
+    List<ChatMessage> history = const <ChatMessage>[],
+  }) async {
     await Future<void>.delayed(thinkingDelay);
 
     final String text = userMessage.trim().toLowerCase();

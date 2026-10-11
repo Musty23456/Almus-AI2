@@ -153,8 +153,8 @@ class HomeScreen extends StatelessWidget {
         Text(
           'ALMUS AI is your personal assistant, built to grow into a teacher, '
           'programming partner, research aide, adviser and companion with '
-          'long-term memory. This is Phase 1: the interface and robot avatar. '
-          'Chat replies are simulated (DEMO MODE).',
+          'long-term memory. Connect your Gemini backend in Settings for real '
+          'answers; until then chat runs in DEMO MODE.',
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: cs.onSurfaceVariant,

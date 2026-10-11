@@ -9,6 +9,7 @@ class ChatMessage {
     required this.sender,
     required this.timestamp,
     this.isError = false,
+    this.engineLabel = 'DEMO',
   });
 
   final String id;
@@ -16,4 +17,7 @@ class ChatMessage {
   final MessageSender sender;
   final DateTime timestamp;
   final bool isError;
+
+  /// Which engine produced an assistant message, e.g. DEMO or GEMINI.
+  final String engineLabel;
 }

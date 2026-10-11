@@ -73,7 +73,9 @@ class MessageBubble extends StatelessWidget {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              message.isError ? 'ALMUS · ERROR' : 'ALMUS · DEMO',
+                              message.isError
+                                  ? 'ALMUS · ERROR'
+                                  : 'ALMUS · ${message.engineLabel}',
                               style: TextStyle(
                                 fontSize: 10,
                                 letterSpacing: 1,

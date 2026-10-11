@@ -1,17 +1,19 @@
-/// Thrown when a chat engine cannot produce a reply.
+import '../models/chat_message.dart';
+
+/// Thrown when a chat engine cannot produce a reply. [message] is safe to show.
 class ChatServiceException implements Exception {
-  const ChatServiceException(this.message);
+  const ChatServiceException(this.message, {this.code = 'error'});
 
   final String message;
 
+  /// Machine-readable code, e.g. `quota_or_rate_limit`, `network`, `timeout`.
+  final String code;
+
   @override
-  String toString() => 'ChatServiceException: $message';
+  String toString() => 'ChatServiceException($code): $message';
 }
 
 /// Contract for chat engines.
-///
-/// Phase 1 ships [DemoChatService] only. Phase 2 can add a Gemini-backed
-/// implementation without touching the UI.
 abstract class ChatService {
   /// Short label shown in the UI, e.g. "DEMO MODE".
   String get engineName;
@@ -19,6 +21,9 @@ abstract class ChatService {
   /// True when replies are simulated rather than produced by a real AI.
   bool get isDemo;
 
-  /// Produces a reply for [userMessage].
-  Future<String> reply(String userMessage);
+  /// Produces a reply for [userMessage]. [history] holds earlier messages.
+  Future<String> reply(
+    String userMessage, {
+    List<ChatMessage> history = const <ChatMessage>[],
+  });
 }

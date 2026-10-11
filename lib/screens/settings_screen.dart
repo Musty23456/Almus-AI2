@@ -1,19 +1,222 @@
 import 'package:flutter/material.dart';
 
+import '../controllers/settings_controller.dart';
+import '../models/app_settings.dart';
+import '../services/backend_client.dart';
+import '../services/chat_service.dart';
+import '../theme/app_theme.dart';
 import '../utils/app_info.dart';
 import '../widgets/glow_card.dart';
 import '../widgets/screen_header.dart';
 
-/// Settings: theme preference, app info, about and privacy.
-class SettingsScreen extends StatelessWidget {
+/// Settings: Gemini connection, theme preference, app info, about and privacy.
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
     super.key,
     required this.themeMode,
     required this.onThemeModeChanged,
+    required this.settings,
+    required this.backend,
   });
 
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode> onThemeModeChanged;
+  final SettingsController settings;
+  final BackendClient backend;
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  late final TextEditingController _url =
+      TextEditingController(text: widget.settings.value.backendUrl);
+  late final TextEditingController _token =
+      TextEditingController(text: widget.settings.value.accessToken);
+  bool _showToken = false;
+  bool _testing = false;
+  String? _message;
+  bool _messageIsError = false;
+
+  @override
+  void dispose() {
+    _url.dispose();
+    _token.dispose();
+    super.dispose();
+  }
+
+  void _show(String text, {required bool isError}) {
+    if (!mounted) return;
+    setState(() {
+      _message = text;
+      _messageIsError = isError;
+    });
+  }
+
+  Future<void> _save() async {
+    final String raw = _url.text.trim();
+    if (raw.isEmpty) {
+      _token.clear();
+      await widget.settings.save(const AppSettings());
+      _show('Backend cleared. Chat is in DEMO MODE.', isError: false);
+      return;
+    }
+    final String? url = normalizeBackendUrl(raw);
+    if (url == null) {
+      _show(
+        'Enter a valid https:// address, for example https://almus-backend.onrender.com',
+        isError: true,
+      );
+      return;
+    }
+    final bool stored = await widget.settings.save(
+      AppSettings(backendUrl: url, accessToken: _token.text.trim()),
+    );
+    _url.text = url;
+    _show(
+      stored
+          ? 'Saved. Chat now uses your backend.'
+          : 'Applied for this session, but it could not be stored on the device.',
+      isError: !stored,
+    );
+  }
+
+  Future<void> _test() async {
+    final String? url = normalizeBackendUrl(_url.text);
+    if (url == null) {
+      _show('Enter a valid https:// backend address first.', isError: true);
+      return;
+    }
+    setState(() => _testing = true);
+    try {
+      final ConnectionInfo info = await widget.backend.checkConnection(
+        AppSettings(backendUrl: url, accessToken: _token.text.trim()),
+      );
+      _show('Connected. Backend model: ${info.model}.', isError: false);
+    } on ChatServiceException catch (e) {
+      _show(e.message, isError: true);
+    } on Exception {
+      _show('Connection test failed. Please try again.', isError: true);
+    } finally {
+      if (mounted) setState(() => _testing = false);
+    }
+  }
+
+  Widget _connectionCard(ThemeData theme) {
+    final ColorScheme cs = theme.colorScheme;
+    return GlowCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          ValueListenableBuilder<AppSettings>(
+            valueListenable: widget.settings,
+            builder: (BuildContext context, AppSettings value, Widget? _) {
+              return _InfoRow(
+                icon: value.isConfigured
+                    ? Icons.bolt_rounded
+                    : Icons.science_outlined,
+                title: 'Mode',
+                value: value.isConfigured
+                    ? 'LIVE (Gemini via backend)'
+                    : 'DEMO MODE (simulated)',
+              );
+            },
+          ),
+          Divider(height: 24, color: cs.outlineVariant),
+          TextField(
+            key: const Key('backend_url_field'),
+            controller: _url,
+            keyboardType: TextInputType.url,
+            autocorrect: false,
+            decoration: const InputDecoration(
+              labelText: 'Backend URL',
+              hintText: 'https://your-backend.onrender.com',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            key: const Key('access_token_field'),
+            controller: _token,
+            obscureText: !_showToken,
+            autocorrect: false,
+            enableSuggestions: false,
+            decoration: InputDecoration(
+              labelText: 'Access token',
+              helperText: 'The APP_ACCESS_TOKEN you set on the server',
+              border: const OutlineInputBorder(),
+              suffixIcon: IconButton(
+                tooltip: _showToken ? 'Hide token' : 'Show token',
+                onPressed: () => setState(() => _showToken = !_showToken),
+                icon: Icon(
+                  _showToken ? Icons.visibility_off : Icons.visibility,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: FilledButton(
+                  key: const Key('save_connection'),
+                  onPressed: _testing ? null : _save,
+                  child: const Text('Save'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton(
+                  key: const Key('test_connection'),
+                  onPressed: _testing ? null : _test,
+                  child: _testing
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Test connection'),
+                ),
+              ),
+            ],
+          ),
+          if (_message != null) ...<Widget>[
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Icon(
+                  _messageIsError
+                      ? Icons.error_outline
+                      : Icons.check_circle_outline,
+                  size: 18,
+                  color: _messageIsError ? cs.error : AlmusColors.mint,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _message!,
+                    style: TextStyle(
+                      color: _messageIsError ? cs.error : cs.onSurface,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 10),
+          Text(
+            'Your Gemini API key is never entered here. It stays on your backend server. Leave the URL empty to use DEMO MODE.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,6 +231,8 @@ class SettingsScreen extends StatelessWidget {
           title: 'Settings',
           subtitle: 'Preferences and information',
         ),
+        const SectionLabel('Gemini connection'),
+        _connectionCard(theme),
         const SectionLabel('Appearance'),
         GlowCard(
           child: Column(
@@ -63,9 +268,9 @@ class SettingsScreen extends StatelessWidget {
                       label: Text('Light'),
                     ),
                   ],
-                  selected: <ThemeMode>{themeMode},
+                  selected: <ThemeMode>{widget.themeMode},
                   onSelectionChanged: (Set<ThemeMode> selection) =>
-                      onThemeModeChanged(selection.first),
+                      widget.onThemeModeChanged(selection.first),
                 ),
               ),
             ],
@@ -93,16 +298,19 @@ class SettingsScreen extends StatelessWidget {
                 value: AppInfo.phase,
               ),
               Divider(height: 24, color: cs.outlineVariant),
-              const _InfoRow(
-                icon: Icons.science_outlined,
-                title: 'Response engine',
-                value: 'DEMO MODE (simulated)',
-              ),
-              Divider(height: 24, color: cs.outlineVariant),
-              const _InfoRow(
-                icon: Icons.cloud_off_outlined,
-                title: 'Gemini',
-                value: 'Not connected (Phase 2)',
+              ValueListenableBuilder<AppSettings>(
+                valueListenable: widget.settings,
+                builder: (BuildContext context, AppSettings value, Widget? _) {
+                  return _InfoRow(
+                    icon: value.isConfigured
+                        ? Icons.cloud_done_outlined
+                        : Icons.cloud_off_outlined,
+                    title: 'Gemini',
+                    value: value.isConfigured
+                        ? 'Backend configured'
+                        : 'Not connected',
+                  );
+                },
               ),
             ],
           ),
@@ -113,8 +321,9 @@ class SettingsScreen extends StatelessWidget {
             'ALMUS AI is a personal assistant built primarily for one user. '
             'It is planned to grow into a teacher, programming assistant, '
             'research assistant, adviser and conversational companion with '
-            'long-term memory. Phase 1 delivers the interface, the animated '
-            'robot avatar and a demo chat. Real AI is not connected yet.',
+            'long-term memory. Phase 2 adds real Gemini answers through a backend '
+            'that you deploy yourself. Without a backend the app stays in '
+            'DEMO MODE.',
             style: body,
           ),
         ),
@@ -123,7 +332,11 @@ class SettingsScreen extends StatelessWidget {
           child: Column(
             children: <Widget>[
               _BulletRow(
-                'Phase 1 makes no network requests and includes no AI service.',
+                'In DEMO MODE the app makes no network requests. In live mode it only contacts the backend address you enter.',
+              ),
+              SizedBox(height: 10),
+              _BulletRow(
+                'Live messages are sent to your backend and then to Google Gemini. On a free Gemini tier Google may use prompts to improve its products, so avoid sensitive details.',
               ),
               SizedBox(height: 10),
               _BulletRow(
@@ -131,10 +344,10 @@ class SettingsScreen extends StatelessWidget {
               ),
               SizedBox(height: 10),
               _BulletRow(
-                'No account, analytics or advertising components are included.',
+                'The Gemini API key is never stored in the app. Only the backend URL and your access token are kept in the phone\'s private app storage.',
               ),
               SizedBox(height: 10),
-              _BulletRow('No API keys are stored in this app.'),
+              _BulletRow('No account, analytics or advertising components are included.'),
             ],
           ),
         ),

@@ -11,10 +11,16 @@ import '../services/demo_chat_service.dart';
 /// Holds the in-memory conversation and the robot's state.
 /// Nothing is persisted: messages disappear when the app closes.
 class ChatController extends ChangeNotifier {
-  ChatController({ChatService? service})
-      : service = service ?? DemoChatService();
+  ChatController({ChatService? service, Listenable? engineChanges})
+      : service = service ?? DemoChatService(),
+        _engineChanges = engineChanges {
+    _engineChanges?.addListener(notifyListeners);
+  }
 
   final ChatService service;
+
+  /// Notifies the UI when the engine can change (e.g. backend saved in Settings).
+  final Listenable? _engineChanges;
 
   /// Current robot avatar state (shared by Home and Chat).
   final ValueNotifier<RobotState> robotState =
@@ -55,15 +61,22 @@ class ChatController extends ChangeNotifier {
 
     _idleTimer?.cancel();
     final int generation = _generation;
+    final List<ChatMessage> history = List<ChatMessage>.of(_messages);
     _messages.add(_newMessage(text, MessageSender.user));
     _busy = true;
     robotState.value = RobotState.thinking;
     notifyListeners();
 
     try {
-      final String reply = await service.reply(text);
+      final String reply = await service.reply(text, history: history);
       if (_disposed || generation != _generation) return;
-      _messages.add(_newMessage(reply, MessageSender.assistant));
+      _messages.add(
+        _newMessage(
+          reply,
+          MessageSender.assistant,
+          engineLabel: service.isDemo ? 'DEMO' : 'GEMINI',
+        ),
+      );
       _busy = false;
       robotState.value = RobotState.talking;
       notifyListeners();
@@ -112,6 +125,7 @@ class ChatController extends ChangeNotifier {
     String text,
     MessageSender sender, {
     bool isError = false,
+    String engineLabel = 'DEMO',
   }) {
     _counter++;
     return ChatMessage(
@@ -120,12 +134,14 @@ class ChatController extends ChangeNotifier {
       sender: sender,
       timestamp: DateTime.now(),
       isError: isError,
+      engineLabel: engineLabel,
     );
   }
 
   @override
   void dispose() {
     _disposed = true;
+    _engineChanges?.removeListener(notifyListeners);
     _idleTimer?.cancel();
     robotState.dispose();
     super.dispose();

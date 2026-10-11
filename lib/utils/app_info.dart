@@ -3,7 +3,7 @@ class AppInfo {
   const AppInfo._();
 
   static const String name = 'ALMUS AI';
-  static const String version = '0.1.0';
-  static const String build = '1';
-  static const String phase = 'Phase 1 · Interface foundation';
+  static const String version = '0.2.0';
+  static const String build = '2';
+  static const String phase = 'Phase 2 · Gemini integration';
 }
