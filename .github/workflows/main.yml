@@ -46,6 +46,10 @@ jobs:
           fi
           grep -n 'android:label\|INTERNET' "$MANIFEST"
 
+      # Database tests run on the CI machine through sqflite_common_ffi, which needs the SQLite library.
+      - name: Install SQLite library for tests
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
+
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
       - run: flutter test
