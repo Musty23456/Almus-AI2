@@ -6,6 +6,7 @@ import '../services/backend_client.dart';
 import '../services/chat_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_info.dart';
+import 'avatar_lab_screen.dart';
 import '../widgets/glow_card.dart';
 import '../widgets/screen_header.dart';
 
@@ -37,6 +38,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _testing = false;
   String? _message;
   bool _messageIsError = false;
+  int _versionTaps = 0;
 
   @override
   void dispose() {
@@ -100,6 +102,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } finally {
       if (mounted) setState(() => _testing = false);
     }
+  }
+
+  /// Tapping the version 7 times unlocks the developer-only Avatar Lab.
+  void _onVersionTap() {
+    if (AvatarLabScreen.unlocked.value) return;
+    _versionTaps++;
+    if (_versionTaps >= 7) {
+      AvatarLabScreen.unlocked.value = true;
+      setState(() {});
+      _show('Developer options unlocked: Avatar Lab.', isError: false);
+    }
+  }
+
+  void _openAvatarLab() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const AvatarLabScreen()),
+    );
   }
 
   Widget _connectionCard(ThemeData theme) {
@@ -280,10 +299,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
         GlowCard(
           child: Column(
             children: <Widget>[
-              const _InfoRow(
-                icon: Icons.tag,
-                title: 'Version',
-                value: AppInfo.version,
+              InkWell(
+                key: const Key('version_row'),
+                onTap: _onVersionTap,
+                child: const _InfoRow(
+                  icon: Icons.tag,
+                  title: 'Version',
+                  value: AppInfo.version,
+                ),
               ),
               Divider(height: 24, color: cs.outlineVariant),
               const _InfoRow(
@@ -315,15 +338,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
         ),
+        if (AvatarLabScreen.unlocked.value) ...<Widget>[
+          const SectionLabel('Developer'),
+          GlowCard(
+            key: const Key('avatar_lab_tile'),
+            onTap: _openAvatarLab,
+            child: const _InfoRow(
+              icon: Icons.science_outlined,
+              title: 'Avatar Lab',
+              value: 'Test every avatar state',
+            ),
+          ),
+        ],
         const SectionLabel('About ALMUS AI'),
         GlowCard(
           child: Text(
             'ALMUS AI is a personal assistant built primarily for one user. '
             'It is planned to grow into a teacher, programming assistant, '
             'research assistant, adviser and conversational companion with '
-            'long-term memory. Phase 2 adds real Gemini answers through a backend '
-            'that you deploy yourself. Without a backend the app stays in '
-            'DEMO MODE.',
+            'long-term memory. Phase 2 added real Gemini answers through a '
+            'backend that you deploy yourself (without one the app stays in '
+            'DEMO MODE). Phase 3 saves your chats on this phone. Phase 4 adds '
+            'personal memory that you control. Phase 5 gives the robot a more '
+            'expressive animated avatar.',
             style: body,
           ),
         ),
@@ -340,11 +377,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               SizedBox(height: 10),
               _BulletRow(
-                'Chat messages live only in memory and disappear when the app closes.',
+                'Conversations are saved in a local database on this phone. Delete one chat from History, or use Clear all history to remove everything.',
               ),
               SizedBox(height: 10),
               _BulletRow(
-                'The Gemini API key is never stored in the app. Only the backend URL and your access token are kept in the phone\'s private app storage.',
+                'Personal memories are also stored only on this phone. When memory is on and you use LIVE MODE, the few memories that match your message are sent with it to your backend and Google Gemini. Turn memory off in the Memory tab, or for a single chat in Chat.',
+              ),
+              SizedBox(height: 10),
+              _BulletRow(
+                'The Gemini API key is never stored in the app. Only the backend URL and your access token are kept in the phone\'s private app storage, separate from the chat database.',
               ),
               SizedBox(height: 10),
               _BulletRow('No account, analytics or advertising components are included.'),

@@ -22,8 +22,11 @@ abstract class ChatService {
   bool get isDemo;
 
   /// Produces a reply for [userMessage]. [history] holds earlier messages.
+  /// [memoryContext] is the optional block of relevant personal memories
+  /// (Phase 4). Engines that do not call a remote AI ignore it.
   Future<String> reply(
     String userMessage, {
     List<ChatMessage> history = const <ChatMessage>[],
+    String? memoryContext,
   });
 }

@@ -3,6 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'controllers/settings_controller.dart';
+import 'data/conversation_repository.dart';
+import 'data/memory_conversation_repository.dart';
+import 'data/memory_repository.dart';
+import 'data/volatile_memory_repository.dart';
 import 'screens/app_shell.dart';
 import 'screens/splash_screen.dart';
 import 'services/backend_client.dart';
@@ -20,6 +24,9 @@ class AlmusApp extends StatefulWidget {
     this.chatService,
     this.settingsStore,
     this.backendClient,
+    this.repository,
+    this.memoryRepository,
+    this.persistentHistory = true,
   });
 
   /// Whether to show the splash screen first (tests may skip it).
@@ -35,6 +42,17 @@ class AlmusApp extends StatefulWidget {
   /// HTTP client for the backend (tests inject a mock).
   final BackendClient? backendClient;
 
+  /// Where conversations are stored. Defaults to an in-memory repository
+  /// (main.dart passes the SQLite one).
+  final ConversationRepository? repository;
+
+  /// Where personal memories are stored (Phase 4). Defaults to an in-memory
+  /// repository (main.dart passes the SQLite one).
+  final MemoryRepository? memoryRepository;
+
+  /// False when the database could not be opened, so the UI can warn the user.
+  final bool persistentHistory;
+
   @override
   State<AlmusApp> createState() => _AlmusAppState();
 }
@@ -46,6 +64,10 @@ class _AlmusAppState extends State<AlmusApp> {
   late final SettingsController _settings =
       SettingsController(widget.settingsStore ?? PrefsSettingsStore());
   late final BackendClient _backend = widget.backendClient ?? BackendClient();
+  late final ConversationRepository _repository =
+      widget.repository ?? MemoryConversationRepository();
+  late final MemoryRepository _memoryRepository =
+      widget.memoryRepository ?? VolatileMemoryRepository();
   late final ChatService _chatService = widget.chatService ??
       RoutedChatService(settings: _settings, backend: _backend);
 
@@ -85,6 +107,9 @@ class _AlmusAppState extends State<AlmusApp> {
                 chatService: _chatService,
                 settings: _settings,
                 backend: _backend,
+                repository: _repository,
+                memoryRepository: _memoryRepository,
+                persistentHistory: widget.persistentHistory,
               )
             : SplashScreen(
                 key: const ValueKey<String>('splash'),

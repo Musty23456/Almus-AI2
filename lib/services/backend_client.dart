@@ -26,15 +26,22 @@ class BackendClient {
   void close() => _client.close();
 
   /// Sends the conversation and returns the assistant's reply.
+  /// [memoryContext] (Phase 4) is the short block of relevant memories picked
+  /// on the phone. It is omitted from the request when null or empty.
   Future<String> chat(
     AppSettings settings,
-    List<Map<String, String>> messages,
-  ) async {
+    List<Map<String, String>> messages, {
+    String? memoryContext,
+  }) async {
+    final Map<String, dynamic> body = <String, dynamic>{'messages': messages};
+    if (memoryContext != null && memoryContext.trim().isNotEmpty) {
+      body['memoryContext'] = memoryContext;
+    }
     final Map<String, dynamic> json = await _send(
       settings,
       'POST',
       '/v1/chat',
-      body: <String, dynamic>{'messages': messages},
+      body: body,
     );
     final Object? reply = json['reply'];
     if (reply is! String || reply.trim().isEmpty) {

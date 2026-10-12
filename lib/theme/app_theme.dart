@@ -13,6 +13,7 @@ class AlmusColors {
   static const Color purple = Color(0xFF9B5CFF);
   static const Color mint = Color(0xFF3DF5B5);
   static const Color error = Color(0xFFFF5370);
+  static const Color amber = Color(0xFFFFC857);
 
   static const LinearGradient accentGradient = LinearGradient(
     begin: Alignment.topLeft,
@@ -31,6 +32,7 @@ class AlmusColors {
       RobotState.listening => blue,
       RobotState.thinking => purple,
       RobotState.talking => mint,
+      RobotState.happy => amber,
       RobotState.error => error,
     };
   }

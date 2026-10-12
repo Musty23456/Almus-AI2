@@ -4,19 +4,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../controllers/chat_controller.dart';
+import '../controllers/memory_controller.dart';
 import '../models/chat_message.dart';
+import '../models/memory_item.dart';
 import '../models/robot_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/memory_dialogs.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/robot_avatar.dart';
 import '../widgets/state_pill.dart';
 
 /// Chat UI. Replies come from the DEMO engine, not a real AI.
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key, required this.chat});
+  const ChatScreen({super.key, required this.chat, this.memory});
 
   final ChatController chat;
+
+  /// Personal memory (Phase 4). Null hides the memory bar.
+  final MemoryController? memory;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -57,7 +63,7 @@ class _ChatScreenState extends State<ChatScreen> {
       builder: (BuildContext ctx) => AlertDialog(
         title: const Text('Clear chat?'),
         content: const Text(
-          'This removes all messages from this demo conversation.',
+          'This permanently deletes this conversation from your phone. Use New chat if you only want a fresh start.',
         ),
         actions: <Widget>[
           TextButton(
@@ -80,7 +86,10 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: widget.chat,
+      listenable: Listenable.merge(<Listenable>[
+        widget.chat,
+        if (widget.memory != null) widget.memory!,
+      ]),
       builder: (BuildContext context, Widget? _) {
         final List<ChatMessage> messages = widget.chat.messages;
         final bool busy = widget.chat.isBusy;
@@ -91,8 +100,13 @@ class _ChatScreenState extends State<ChatScreen> {
               chat: widget.chat,
               canClear: messages.isNotEmpty,
               onClear: _confirmClear,
+              onNewChat: widget.chat.newConversation,
             ),
             _EngineBanner(isDemo: widget.chat.isDemo),
+            if (widget.memory != null)
+              _MemoryBar(chat: widget.chat, memory: widget.memory!),
+            if (widget.chat.storageNotice != null)
+              _StorageNotice(text: widget.chat.storageNotice!),
             Expanded(
               child: messages.isEmpty && !busy
                   ? Center(
@@ -158,11 +172,13 @@ class _ChatHeader extends StatelessWidget {
     required this.chat,
     required this.canClear,
     required this.onClear,
+    required this.onNewChat,
   });
 
   final ChatController chat;
   final bool canClear;
   final VoidCallback onClear;
+  final VoidCallback onNewChat;
 
   @override
   Widget build(BuildContext context) {
@@ -181,7 +197,9 @@ class _ChatHeader extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      'Almus Chat',
+                      chat.conversationTitle ?? 'Almus Chat',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -192,6 +210,12 @@ class _ChatHeader extends StatelessWidget {
                 ),
               ),
               IconButton(
+                key: const Key('new_chat_button'),
+                tooltip: 'New chat',
+                onPressed: canClear ? onNewChat : null,
+                icon: const Icon(Icons.add_comment_outlined),
+              ),
+              IconButton(
                 key: const Key('clear_chat_button'),
                 tooltip: 'Clear chat',
                 onPressed: canClear ? onClear : null,
@@ -200,6 +224,163 @@ class _ChatHeader extends StatelessWidget {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// Shows whether memory is active for this chat, lets the user switch it off
+/// for this chat, lists the memories used, and offers pending suggestions.
+class _MemoryBar extends StatelessWidget {
+  const _MemoryBar({required this.chat, required this.memory});
+
+  final ChatController chat;
+  final MemoryController memory;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    final bool globallyOn = memory.enabled;
+    final bool chatOff = chat.chatMemoryOff;
+    final List<MemoryItem> used = chat.lastMemoryUsed;
+    final List<MemoryItem> suggestions =
+        globallyOn && !chatOff ? memory.suggestions : const <MemoryItem>[];
+
+    String status;
+    if (!globallyOn) {
+      status = 'Memory is off (change it in the Memory tab)';
+    } else if (chatOff) {
+      status = 'Memory is off for this chat';
+    } else if (chat.isDemo) {
+      status = 'Memory is on, but unused in DEMO MODE';
+    } else {
+      status = 'Memory is on';
+    }
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+      padding: const EdgeInsets.fromLTRB(12, 2, 4, 2),
+      decoration: BoxDecoration(
+        color: cs.surface.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(
+                Icons.psychology_outlined,
+                size: 18,
+                color: globallyOn && !chatOff ? cs.primary : cs.onSurfaceVariant,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  status,
+                  key: const Key('memory_bar_status'),
+                  style: const TextStyle(fontSize: 12.5),
+                ),
+              ),
+              if (globallyOn)
+                TextButton(
+                  key: const Key('chat_memory_toggle'),
+                  onPressed: () => unawaited(chat.setChatMemoryOff(!chatOff)),
+                  child: Text(
+                    chatOff ? 'Turn on' : 'Turn off for this chat',
+                    style: const TextStyle(fontSize: 12.5),
+                  ),
+                ),
+            ],
+          ),
+          if (used.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: InkWell(
+                key: const Key('memory_used_button'),
+                onTap: () => unawaited(showUsedMemoriesSheet(context, used)),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Text(
+                    'Used ${used.length} ${used.length == 1 ? 'memory' : 'memories'} in the last reply · tap to see',
+                    style: TextStyle(fontSize: 12, color: cs.primary),
+                  ),
+                ),
+              ),
+            ),
+          if (suggestions.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6, right: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Remember this?',
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    suggestions.first.text,
+                    key: const Key('chat_suggestion_text'),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13, height: 1.3),
+                  ),
+                  Row(
+                    children: <Widget>[
+                      TextButton(
+                        key: const Key('chat_suggestion_confirm'),
+                        onPressed: () => unawaited(
+                          confirmSuggestionFlow(context, memory, suggestions.first),
+                        ),
+                        child: const Text('Save'),
+                      ),
+                      TextButton(
+                        key: const Key('chat_suggestion_dismiss'),
+                        onPressed: () =>
+                            unawaited(memory.reject(suggestions.first.id)),
+                        child: const Text('Dismiss'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StorageNotice extends StatelessWidget {
+  const _StorageNotice({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: cs.error.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.error.withValues(alpha: 0.45)),
+      ),
+      child: Row(
+        children: <Widget>[
+          Icon(Icons.sd_storage_outlined, size: 18, color: cs.error),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              key: const Key('storage_notice'),
+              style: const TextStyle(fontSize: 12.5, height: 1.35),
+            ),
+          ),
+        ],
       ),
     );
   }

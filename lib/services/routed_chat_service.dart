@@ -61,10 +61,15 @@ class RoutedChatService implements ChatService {
   Future<String> reply(
     String userMessage, {
     List<ChatMessage> history = const <ChatMessage>[],
+    String? memoryContext,
   }) {
     if (isDemo) {
       return demo.reply(userMessage, history: history);
     }
-    return backend.chat(settings.value, buildChatPayload(userMessage, history));
+    return backend.chat(
+      settings.value,
+      buildChatPayload(userMessage, history),
+      memoryContext: memoryContext,
+    );
   }
 }

@@ -50,7 +50,7 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 'Almus is designed as a personal assistant for a single user. '
-                'Accounts and personalised profiles are not part of Phase 1.',
+                'There are no accounts. Your chats and memories stay on this phone.',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
@@ -126,7 +126,14 @@ class HomeScreen extends StatelessWidget {
           builder: (BuildContext context, RobotState state, Widget? _) {
             return Column(
               children: <Widget>[
-                Center(child: RobotAvatar(state: state, size: avatarSize)),
+                Center(
+                  child: GestureDetector(
+                    key: const Key('home_avatar_tap'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: chat.celebrate,
+                    child: RobotAvatar(state: state, size: avatarSize),
+                  ),
+                ),
                 const SizedBox(height: 4),
                 StatePill(state: state),
                 const SizedBox(height: 8),
@@ -153,7 +160,7 @@ class HomeScreen extends StatelessWidget {
         Text(
           'ALMUS AI is your personal assistant, built to grow into a teacher, '
           'programming partner, research aide, adviser and companion with '
-          'long-term memory. Connect your Gemini backend in Settings for real '
+          'memory you control. Connect your Gemini backend in Settings for real '
           'answers; until then chat runs in DEMO MODE.',
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
@@ -210,7 +217,7 @@ class HomeScreen extends StatelessWidget {
                 icon: Icons.psychology_rounded,
                 label: 'My Memory',
                 color: AlmusColors.purple,
-                onTap: () => onNavigate(2),
+                onTap: () => onNavigate(3),
               ),
             ),
             const SizedBox(width: 12),
@@ -220,7 +227,7 @@ class HomeScreen extends StatelessWidget {
                 icon: Icons.settings_rounded,
                 label: 'Settings',
                 color: AlmusColors.blue,
-                onTap: () => onNavigate(3),
+                onTap: () => onNavigate(4),
               ),
             ),
           ],

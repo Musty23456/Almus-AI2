@@ -27,6 +27,7 @@ class DemoChatService implements ChatService {
   Future<String> reply(
     String userMessage, {
     List<ChatMessage> history = const <ChatMessage>[],
+    String? memoryContext,
   }) async {
     await Future<void>.delayed(thinkingDelay);
 
@@ -51,7 +52,7 @@ class DemoChatService implements ChatService {
       return 'Gemini is not connected yet. The real integration is planned for Phase 2.';
     }
     if (words.contains('memory') || words.contains('remember')) {
-      return 'Persistent memory is planned for a later phase. In this version nothing you write is saved.';
+      return 'In DEMO MODE nothing is sent anywhere, so I cannot use your saved memories. You can manage them in the Memory tab, and they are used once a backend is connected.';
     }
     if (words.contains('thanks') || words.contains('thank')) {
       return 'You are welcome! (This is a scripted demo reply.)';

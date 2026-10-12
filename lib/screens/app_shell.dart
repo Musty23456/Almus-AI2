@@ -1,15 +1,22 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../controllers/chat_controller.dart';
+import '../controllers/history_controller.dart';
+import '../controllers/memory_controller.dart';
 import '../controllers/settings_controller.dart';
+import '../data/conversation_repository.dart';
+import '../data/memory_repository.dart';
 import '../services/backend_client.dart';
 import '../services/chat_service.dart';
 import 'chat_screen.dart';
+import 'history_screen.dart';
 import 'home_screen.dart';
 import 'memory_screen.dart';
 import 'settings_screen.dart';
 
-/// Main scaffold with bottom navigation (Home, Chat, Memory, Settings).
+/// Main scaffold with bottom navigation (Home, Chat, History, Memory, Settings).
 class AppShell extends StatefulWidget {
   const AppShell({
     super.key,
@@ -17,6 +24,9 @@ class AppShell extends StatefulWidget {
     required this.onThemeModeChanged,
     required this.settings,
     required this.backend,
+    required this.repository,
+    required this.memoryRepository,
+    this.persistentHistory = true,
     this.chatService,
   });
 
@@ -24,6 +34,9 @@ class AppShell extends StatefulWidget {
   final ValueChanged<ThemeMode> onThemeModeChanged;
   final SettingsController settings;
   final BackendClient backend;
+  final ConversationRepository repository;
+  final MemoryRepository memoryRepository;
+  final bool persistentHistory;
   final ChatService? chatService;
 
   @override
@@ -31,15 +44,31 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
+  late final MemoryController _memory =
+      MemoryController(widget.memoryRepository);
   late final ChatController _chat = ChatController(
     service: widget.chatService,
     engineChanges: widget.settings,
+    repository: widget.repository,
+    persistent: widget.persistentHistory,
+    memory: _memory,
   );
+  late final HistoryController _history = HistoryController(widget.repository);
   int _index = 0;
 
   @override
+  void initState() {
+    super.initState();
+    // Reopen the most recent saved conversation and load personal memory.
+    unawaited(_chat.restoreLatest());
+    unawaited(_memory.load());
+  }
+
+  @override
   void dispose() {
+    _history.dispose();
     _chat.dispose();
+    _memory.dispose();
     super.dispose();
   }
 
@@ -48,8 +77,14 @@ class _AppShellState extends State<AppShell> {
   Widget _page() {
     return switch (_index) {
       0 => HomeScreen(chat: _chat, onNavigate: _go),
-      1 => ChatScreen(chat: _chat),
-      2 => const MemoryScreen(),
+      1 => ChatScreen(chat: _chat, memory: _memory),
+      2 => HistoryScreen(
+          chat: _chat,
+          history: _history,
+          memory: _memory,
+          onOpenChat: () => _go(1),
+        ),
+      3 => MemoryScreen(memory: _memory),
       _ => SettingsScreen(
           themeMode: widget.themeMode,
           onThemeModeChanged: widget.onThemeModeChanged,
@@ -89,6 +124,11 @@ class _AppShellState extends State<AppShell> {
                   icon: Icon(Icons.chat_bubble_outline),
                   selectedIcon: Icon(Icons.chat_bubble),
                   label: 'Chat',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.history_outlined),
+                  selectedIcon: Icon(Icons.history),
+                  label: 'History',
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.psychology_outlined),
