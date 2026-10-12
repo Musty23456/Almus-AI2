@@ -2,11 +2,11 @@ import http from 'node:http';
 import crypto from 'node:crypto';
 import { ApiError, bad } from './errors.js';
 import { configProblems } from './config.js';
-import { validateChatRequest, buildContents } from './validate.js';
+import { validateChatRequest, validateMemoryContext, buildContents } from './validate.js';
 import { createGeminiClient } from './gemini.js';
 import { createRateLimiter } from './rateLimit.js';
 
-export const SERVICE_VERSION = '0.1.0';
+export const SERVICE_VERSION = '0.2.0';
 
 function sendJson(res, status, payload, extraHeaders = {}) {
   const body = JSON.stringify(payload);
@@ -103,6 +103,7 @@ export function createApp({ config, fetchImpl = globalThis.fetch, logger = () =>
       throw bad('Request body is not valid JSON.', 'invalid_json');
     }
     const messages = validateChatRequest(body, config);
+    const memoryContext = validateMemoryContext(body, config);
     const contents = buildContents(messages, config.maxContextChars);
 
     const daily = limiter.takeDaily();
@@ -111,7 +112,7 @@ export function createApp({ config, fetchImpl = globalThis.fetch, logger = () =>
         retryAfterSeconds: daily.retryAfterSeconds,
       });
     }
-    const result = await gemini.generate(contents);
+    const result = await gemini.generate(contents, { memoryContext });
     return { reply: result.reply, model: result.model, finishReason: result.finishReason, usage: result.usage };
   }
 

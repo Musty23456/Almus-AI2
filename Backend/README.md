@@ -23,6 +23,8 @@ Success `200`:
 { "reply": "...", "model": "gemini-...", "finishReason": "STOP",
   "usage": { "promptTokens": 12, "outputTokens": 80, "totalTokens": 92 } }
 ```
+Optional field (Phase 4): `"memoryContext": "..."`, a short block of the user's personal memory notes picked on their phone. It is cleaned, limited to `MAX_MEMORY_CHARS` (default 3000, else `400 memory_too_long`) and appended to the system instruction, never to the conversation. It is not logged or stored. Omit it for no memory.
+
 Rules: the last message must be `user`; roles are `user` or `assistant`; each message at most `MAX_MESSAGE_CHARS`; request body at most `MAX_BODY_BYTES`. Only the newest messages that fit `MAX_CONTEXT_CHARS` are sent to Gemini.
 
 ### `GET /v1/models`
@@ -33,7 +35,7 @@ Always `{ "error": { "code": "...", "message": "...", "retryAfterSeconds": 12 } 
 
 | HTTP | code | Meaning |
 |---|---|---|
-| 400 | `invalid_request`, `invalid_json`, `message_too_long` | Bad request body |
+| 400 | `invalid_request`, `invalid_json`, `message_too_long`, `memory_too_long` | Bad request body |
 | 401 | `unauthorized` | Missing/wrong access token |
 | 413 | `payload_too_large` | Body bigger than `MAX_BODY_BYTES` |
 | 415 | `unsupported_media_type` | Not `application/json` |
@@ -52,6 +54,7 @@ See `env.example` for every name. The important ones:
 |---|---|---|
 | `GEMINI_API_KEY` | yes | Your Google AI Studio key |
 | `APP_ACCESS_TOKEN` | yes | A long random string you invent. The app sends it; strangers cannot use your quota |
+| `MAX_MEMORY_CHARS` | no (default 3000) | Largest `memoryContext` accepted |
 | `GEMINI_MODEL` | no (default `gemini-flash-latest`) | Model used for chat |
 | `GEMINI_FALLBACK_MODEL` | no | Tried automatically on quota/availability errors |
 | `RATE_LIMIT_PER_MINUTE` / `DAILY_REQUEST_LIMIT` | no | Abuse protection; the daily cap protects your free quota |
@@ -83,3 +86,6 @@ Other hosts work too: the included `Dockerfile` runs on Google Cloud Run, Fly.io
 node --test                 # no install needed, no network used
 GEMINI_API_KEY=... APP_ACCESS_TOKEN=test npm start
 ```
+
+## Phase 4 note
+If you set your own `SYSTEM_PROMPT`, it replaces the default prompt that tells the model it has no memory except the notes provided. The memory block sent by the app repeats that rule, so memory still works, but consider keeping a sentence like it in your prompt.

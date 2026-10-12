@@ -165,3 +165,30 @@ test('GET /v1/models requires the token and lists models', async () => {
     assert.equal(json.configuredModel, 'gemini-flash-latest');
   });
 });
+
+test('memoryContext reaches Gemini as a system instruction and is never logged', async () => {
+  const logs = [];
+  let sent;
+  const fetchImpl = async (url, init) => {
+    sent = JSON.parse(init.body);
+    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: 'ok' }] }, finishReason: 'STOP' }] }), { status: 200 });
+  };
+  await withServer({}, fetchImpl, async (base) => {
+    const res = await post(base, { ...valid, memoryContext: 'LOCAL MEMORY NOTES\n- [preference] short answers please' });
+    assert.equal(res.status, 200);
+    assert.ok(sent.systemInstruction.parts[0].text.includes('short answers please'));
+    assert.ok(!JSON.stringify(sent.contents).includes('short answers please'));
+  }, logs);
+  assert.ok(!logs.join('\n').includes('short answers'));
+});
+
+test('requests without memoryContext still work and bad memoryContext is rejected', async () => {
+  await withServer({}, geminiOk(), async (base) => {
+    assert.equal((await post(base, valid)).status, 200);
+    const bad = await post(base, { ...valid, memoryContext: 42 });
+    assert.equal(bad.status, 400);
+    const tooLong = await post(base, { ...valid, memoryContext: 'x'.repeat(4000) });
+    assert.equal(tooLong.status, 400);
+    assert.equal((await tooLong.json()).error.code, 'memory_too_long');
+  });
+});

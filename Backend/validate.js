@@ -45,6 +45,25 @@ export function validateChatRequest(body, config) {
 }
 
 /**
+ * Validates the optional "memoryContext" field (Phase 4): a short block of
+ * personal memory notes picked on the user's phone. Returns the cleaned text,
+ * or null when absent or blank. Throws ApiError(400) when it is not a string
+ * or is longer than config.maxMemoryChars.
+ */
+export function validateMemoryContext(body, config) {
+  const value = body?.memoryContext;
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'string') throw bad('"memoryContext" must be a string.');
+  // Drop control characters except newlines and tabs.
+  const cleaned = value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').trim();
+  if (!cleaned) return null;
+  if (cleaned.length > config.maxMemoryChars) {
+    throw new ApiError(400, 'memory_too_long', `"memoryContext" exceeds ${config.maxMemoryChars} characters.`);
+  }
+  return cleaned;
+}
+
+/**
  * Turns validated messages into Gemini "contents", keeping only the newest messages that fit
  * inside the character budget (a rough stand-in for a token limit).
  */

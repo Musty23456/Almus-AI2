@@ -136,3 +136,21 @@ test('listModels returns only generateContent models', async () => {
   const names = await createGeminiClient({ config: baseConfig(), fetchImpl: async () => reply(200, body) }).listModels();
   assert.deepEqual(names, ['a', 'b']);
 });
+
+test('memory notes are added to the system instruction only when provided', async () => {
+  const bodies = [];
+  const fetchImpl = async (url, init) => {
+    bodies.push(JSON.parse(init.body));
+    return reply(200, okBody());
+  };
+  const client = createGeminiClient({ config: baseConfig(), fetchImpl });
+  await client.generate(contents);
+  await client.generate(contents, { memoryContext: 'LOCAL MEMORY NOTES\n- [fact] likes tea' });
+  const plain = bodies[0].systemInstruction.parts[0].text;
+  const withMemory = bodies[1].systemInstruction.parts[0].text;
+  assert.ok(!plain.includes('LOCAL MEMORY NOTES\n'));
+  assert.ok(withMemory.startsWith(plain));
+  assert.ok(withMemory.includes('- [fact] likes tea'));
+  // Memory never leaks into the conversation contents.
+  assert.ok(!JSON.stringify(bodies[1].contents).includes('likes tea'));
+});

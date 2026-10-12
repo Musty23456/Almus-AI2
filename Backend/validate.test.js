@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadConfig } from './config.js';
-import { validateChatRequest, buildContents } from './validate.js';
+import { validateChatRequest, validateMemoryContext, buildContents } from './validate.js';
 
 const config = loadConfig({});
 const user = (content) => ({ role: 'user', content });
@@ -65,4 +65,19 @@ test('buildContents merges consecutive same-role messages and maps assistant to 
   const contents = buildContents([user('one'), user('two'), bot('three'), user('four')], 1000);
   assert.deepEqual(contents.map((c) => c.role), ['user', 'model', 'user']);
   assert.equal(contents[0].parts[0].text, 'one\n\ntwo');
+});
+
+test('memoryContext is optional, trimmed and cleaned', () => {
+  assert.equal(validateMemoryContext({}, config), null);
+  assert.equal(validateMemoryContext({ memoryContext: null }, config), null);
+  assert.equal(validateMemoryContext({ memoryContext: '   ' }, config), null);
+  assert.equal(validateMemoryContext({ memoryContext: '  - [fact] likes tea\u0000\n' }, config), '- [fact] likes tea');
+});
+
+test('memoryContext must be a string within the size limit', () => {
+  assert.throws(() => validateMemoryContext({ memoryContext: 5 }, config), (e) => e.status === 400);
+  assert.throws(
+    () => validateMemoryContext({ memoryContext: 'a'.repeat(config.maxMemoryChars + 1) }, config),
+    (e) => e.status === 400 && e.code === 'memory_too_long',
+  );
 });

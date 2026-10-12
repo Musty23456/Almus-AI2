@@ -2,7 +2,9 @@ const DEFAULT_SYSTEM_PROMPT =
   'You are Almus, a friendly, capable personal AI assistant living in an Android app. ' +
   'Reply in the same language the user writes in (for example English or Hausa). ' +
   'Keep answers clear and reasonably short for a phone screen unless the user asks for detail. ' +
-  'Be honest when you are unsure, and do not invent facts.';
+  'Be honest when you are unsure, and do not invent facts. ' +
+  'You have no memory of earlier conversations. The only personal facts you may rely on are the ones the user states in this chat and any "LOCAL MEMORY NOTES" block in these instructions. ' +
+  'Never claim to remember something that is not provided.';
 
 function int(value, fallback, min, max) {
   const n = Number.parseInt(value ?? '', 10);
@@ -43,6 +45,7 @@ export function loadConfig(env = process.env) {
     maxMessages: int(env.MAX_MESSAGES, 100, 1, 500),
     maxMessageChars: int(env.MAX_MESSAGE_CHARS, 4000, 100, 20000),
     maxContextChars: int(env.MAX_CONTEXT_CHARS, 12000, 500, 200000),
+    maxMemoryChars: int(env.MAX_MEMORY_CHARS, 3000, 200, 20000),
     rateLimitPerMinute: int(env.RATE_LIMIT_PER_MINUTE, 20, 1, 1000),
     dailyRequestLimit: int(env.DAILY_REQUEST_LIMIT, 300, 1, 1000000),
     trustProxy: env.TRUST_PROXY === 'true',

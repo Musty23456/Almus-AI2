@@ -117,10 +117,15 @@ export function createGeminiClient({ config, fetchImpl = globalThis.fetch }) {
     };
   }
 
-  async function generateWith(model, contents) {
+  /** The system prompt, plus the user's memory notes when the app sent any. */
+  function systemText(memoryContext) {
+    return memoryContext ? `${config.systemPrompt}\n\n${memoryContext}` : config.systemPrompt;
+  }
+
+  async function generateWith(model, contents, memoryContext) {
     const url = `${config.geminiBaseUrl}/models/${encodeURIComponent(model)}:generateContent`;
     const body = {
-      systemInstruction: { parts: [{ text: config.systemPrompt }] },
+      systemInstruction: { parts: [{ text: systemText(memoryContext) }] },
       contents,
       generationConfig: { maxOutputTokens: config.maxOutputTokens, temperature: config.temperature },
     };
@@ -131,9 +136,9 @@ export function createGeminiClient({ config, fetchImpl = globalThis.fetch }) {
 
   return {
     /** Tries the primary model, then the optional fallback model for quota/availability problems. */
-    async generate(contents) {
+    async generate(contents, { memoryContext = null } = {}) {
       try {
-        return await generateWith(config.geminiModel, contents);
+        return await generateWith(config.geminiModel, contents, memoryContext);
       } catch (err) {
         const canFallback =
           err instanceof ApiError &&
@@ -141,7 +146,7 @@ export function createGeminiClient({ config, fetchImpl = globalThis.fetch }) {
           config.geminiFallbackModel &&
           config.geminiFallbackModel !== config.geminiModel;
         if (!canFallback) throw err;
-        return generateWith(config.geminiFallbackModel, contents);
+        return generateWith(config.geminiFallbackModel, contents, memoryContext);
       }
     },
 
