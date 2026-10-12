@@ -4,7 +4,7 @@ import 'package:almus_ai/data/app_database.dart';
 import 'package:almus_ai/data/sqlite_conversation_repository.dart';
 import 'package:almus_ai/data/sqlite_memory_repository.dart';
 import 'package:almus_ai/data/storage_exception.dart';
-import 'package:almus_ai/models/memory_item.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
