@@ -138,7 +138,7 @@ void main() {
     await _settle(tester);
     await tester.pump(const Duration(milliseconds: 400));
 
-    expect(find.textContaining('never stores'), findsOneWidget);
+    expect(find.textContaining('never stores a password'), findsOneWidget);
     stored = (await tester.runAsync(() => repo.list()))!;
     expect(stored.length, 1);
   });
