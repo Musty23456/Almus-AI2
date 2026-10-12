@@ -79,7 +79,7 @@ void main() {
     expect(find.text('TALKING'), findsOneWidget);
     expect(bodies.length, 1);
 
-    await tester.pump(const Duration(seconds: 6));
+    await tester.pump(const Duration(seconds: 8));
     expect(find.text('IDLE'), findsOneWidget);
   });
 

@@ -4,6 +4,7 @@ import 'package:almus_ai/models/robot_state.dart';
 import 'package:almus_ai/services/demo_chat_service.dart';
 import 'package:almus_ai/services/settings_store.dart';
 import 'package:almus_ai/utils/formatters.dart';
+import 'package:almus_ai/widgets/message_bubble.dart';
 import 'package:almus_ai/widgets/robot_avatar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -55,6 +56,25 @@ void main() {
     await tester.tap(find.widgetWithText(ChoiceChip, 'Thinking'));
     await tester.pump();
     expect(find.text('ROBOT STATE · THINKING'), findsOneWidget);
+
+    // Phase 5: HAPPY is previewable too.
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Happy'));
+    await tester.pump();
+    expect(find.text('ROBOT STATE · HAPPY'), findsOneWidget);
+  });
+
+  testWidgets('tapping the home avatar makes it happy, then idle again',
+      (tester) async {
+    _usePhoneScreen(tester);
+    await tester.pumpWidget(_app());
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('home_avatar_tap')));
+    await tester.pump();
+    expect(find.text('ROBOT STATE · HAPPY'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.text('ROBOT STATE · IDLE'), findsOneWidget);
   });
 
   testWidgets('quick action opens chat with DEMO MODE label and empty state',
@@ -82,13 +102,17 @@ void main() {
     await tester.pump();
     await tester.tap(find.byKey(const Key('send_button')));
     await tester.pump();
-    expect(find.text('hello'), findsOneWidget);
+    // The chat title also becomes 'hello', so look inside the message bubbles only.
+    expect(
+      find.descendant(of: find.byType(MessageBubble), matching: find.text('hello')),
+      findsOneWidget,
+    );
 
     await tester.pump(const Duration(milliseconds: 50));
     expect(find.text('ALMUS · DEMO'), findsOneWidget);
 
     // Let the talking state expire so no timers stay pending.
-    await tester.pump(const Duration(seconds: 6));
+    await tester.pump(const Duration(seconds: 8));
     expect(find.text('IDLE'), findsOneWidget);
   });
 
@@ -122,7 +146,7 @@ void main() {
     await tester.tap(find.byKey(const Key('send_button')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
-    await tester.pump(const Duration(seconds: 6));
+    await tester.pump(const Duration(seconds: 8));
 
     await tester.tap(find.byKey(const Key('clear_chat_button')));
     await tester.pump();
@@ -134,15 +158,15 @@ void main() {
     expect(find.text('Start a conversation'), findsOneWidget);
   });
 
-  testWidgets('memory screen explains that memory is not available yet',
+  testWidgets('history screen shows history and is honest about AI memory',
       (tester) async {
     _usePhoneScreen(tester);
     await tester.pumpWidget(_app());
     await tester.pump();
-    await _openTab(tester, Icons.psychology_outlined);
+    await _openTab(tester, Icons.history_outlined);
 
-    expect(find.text('No memories yet'), findsOneWidget);
-    expect(find.textContaining('later phase'), findsWidgets);
+    expect(find.text('No saved conversations yet'), findsOneWidget);
+    expect(find.textContaining('does not automatically remember'), findsOneWidget);
   });
 
   testWidgets('settings screen shows the app version', (tester) async {
@@ -151,7 +175,7 @@ void main() {
     await tester.pump();
     await _openTab(tester, Icons.settings_outlined);
 
-    expect(find.text('0.2.0'), findsOneWidget);
+    expect(find.text('0.5.0'), findsOneWidget);
     expect(find.text('DEMO MODE (simulated)'), findsOneWidget);
   });
 
@@ -173,12 +197,13 @@ void main() {
     expect(controller.messages.length, 2);
     expect(controller.robotState.value, RobotState.talking);
 
-    await tester.pump(const Duration(seconds: 6));
+    await tester.pump(const Duration(seconds: 8));
     expect(
       states,
       <RobotState>[
         RobotState.thinking,
         RobotState.talking,
+        RobotState.happy,
         RobotState.idle,
       ],
     );
