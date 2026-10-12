@@ -1,6 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
-
 import 'package:almus_ai/avatar/avatar_profile.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,7 +10,7 @@ class _StringBundle extends AssetBundle {
   @override
   Future<ByteData> load(String key) async {
     final String? t = text;
-    if (t == null) throw FlutterError('missing asset $key');
+    if (t == null) throw StateError('missing asset $key');
     final Uint8List bytes = Uint8List.fromList(utf8.encode(t));
     return ByteData.sublistView(bytes);
   }
