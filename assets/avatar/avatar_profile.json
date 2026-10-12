@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "blinkMinSeconds": 2.4,
+  "blinkMaxSeconds": 5.6,
+  "doubleBlinkChance": 0.12,
+  "transitionSpeed": 9.0,
+  "breathSeconds": 4.0,
+  "gazeWander": 1.0,
+  "motionScale": 1.0,
+  "maxFps": 30
+}
