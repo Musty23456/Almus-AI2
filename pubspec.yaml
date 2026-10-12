@@ -1,7 +1,7 @@
 name: almus_ai
-description: ALMUS AI - a personal AI assistant (Phase 1, demo mode).
+description: ALMUS AI - a personal AI assistant (Phase 5, humanoid avatar).
 publish_to: 'none'
-version: 0.2.0+2
+version: 0.5.0+5
 
 environment:
   sdk: ^3.5.0
@@ -10,17 +10,19 @@ dependencies:
   flutter:
     sdk: flutter
   http: ^1.2.2
+  path: ^1.9.0
   shared_preferences: ^2.3.3
+  sqflite: ^2.4.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  sqflite_common_ffi: ^2.3.4
 
 flutter:
   uses-material-design: true
-  # Phase 1 needs no bundled assets: the robot avatar is drawn in code.
-  # To add images/animations later, create the files and declare them here:
-  # assets:
-  #   - assets/images/
-  #   - assets/animations/
+  # Phase 5: one tiny optional tuning file for the avatar (the avatar itself
+  # is drawn in code and works even if this file is missing).
+  assets:
+    - assets/avatar/avatar_profile.json
