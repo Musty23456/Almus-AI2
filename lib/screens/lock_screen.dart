@@ -114,15 +114,16 @@ class _LockScreenState extends State<LockScreen> {
         final bool canTryBiometric = !unavailable || c.capabilities.deviceSupported;
 
         String primaryLabel = 'AUTHENTICATE';
-        if (s == AppLockState.failed ||
-            s == AppLockState.cancelled ||
-            s == AppLockState.lockout) {
-          primaryLabel = 'TRY AGAIN';
-        }
         if (!c.capabilities.hasBiometrics && c.capabilities.deviceSupported) {
           primaryLabel = 'UNLOCK WITH DEVICE PIN';
         } else if (c.capabilities.hasBiometrics) {
           primaryLabel = 'AUTHENTICATE WITH ANDROID';
+        }
+        // A retry label wins over the generic one after a failed attempt.
+        if (s == AppLockState.failed ||
+            s == AppLockState.cancelled ||
+            s == AppLockState.lockout) {
+          primaryLabel = 'TRY AGAIN';
         }
 
         return Material(
