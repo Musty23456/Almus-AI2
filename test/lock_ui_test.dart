@@ -107,7 +107,7 @@ void main() {
     });
 
     test('every state has a label and a scanner state', () {
-      for (final LockState s in LockState.values) {
+      for (final AppLockState s in AppLockState.values) {
         expect(LockScreen.statusLabel(s), isNotEmpty);
         expect(LockScreen.scannerFor(s), isA<EyeScannerState>());
       }

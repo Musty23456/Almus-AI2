@@ -24,7 +24,7 @@ void main() {
 
       expect(fake.calls, 1);
       expect(fake.credentialFlags, <bool>[false]); // biometric only
-      expect(c.state, LockState.verified);
+      expect(c.state, AppLockState.verified);
       expect(c.isUnlocked, isTrue);
       expect(c.privateContentVisible, isTrue);
     });
@@ -33,7 +33,7 @@ void main() {
       final FakeBiometricService fake =
           FakeBiometricService(script: <AuthOutcome>[AuthOutcome.success]);
       final AppLockController c = makeLockController(fake);
-      final List<LockState> seen = <LockState>[];
+      final List<AppLockState> seen = <AppLockState>[];
       c.addListener(() => seen.add(c.state));
 
       await c.load();
@@ -41,11 +41,11 @@ void main() {
 
       expect(
         seen,
-        containsAllInOrder(<LockState>[
-          LockState.initializing,
-          LockState.scanning,
-          LockState.authenticating,
-          LockState.verified,
+        containsAllInOrder(<AppLockState>[
+          AppLockState.initializing,
+          AppLockState.scanning,
+          AppLockState.authenticating,
+          AppLockState.verified,
         ]),
       );
     });
@@ -59,7 +59,7 @@ void main() {
       await c.load();
       await pumpEventQueue();
 
-      expect(c.state, LockState.failed);
+      expect(c.state, AppLockState.failed);
       expect(c.privateContentVisible, isFalse);
       expect(c.message, isNotNull);
 
@@ -79,7 +79,7 @@ void main() {
       await c.load();
       await pumpEventQueue();
 
-      expect(c.state, LockState.cancelled);
+      expect(c.state, AppLockState.cancelled);
       expect(c.privateContentVisible, isFalse);
     });
 
@@ -91,7 +91,7 @@ void main() {
       await c.load();
       await pumpEventQueue();
 
-      expect(c.state, LockState.failed);
+      expect(c.state, AppLockState.failed);
       expect(c.privateContentVisible, isFalse);
     });
 
@@ -122,7 +122,7 @@ void main() {
       await c.load();
       await pumpEventQueue();
 
-      expect(c.state, LockState.unavailable);
+      expect(c.state, AppLockState.unavailable);
       expect(c.privateContentVisible, isFalse);
       expect(fake.calls, 0);
       expect(c.showContinueWithoutLock, isTrue);
@@ -144,7 +144,7 @@ void main() {
       await c.load();
       await pumpEventQueue();
 
-      expect(c.state, LockState.unavailable);
+      expect(c.state, AppLockState.unavailable);
       expect(c.privateContentVisible, isFalse);
       // A screen lock exists, so there is no "continue without lock".
       expect(c.showContinueWithoutLock, isFalse);
@@ -161,13 +161,13 @@ void main() {
 
       await c.load();
       await pumpEventQueue();
-      expect(c.state, LockState.lockout);
+      expect(c.state, AppLockState.lockout);
       expect(c.privateContentVisible, isFalse);
       expect(c.showFallbackButton, isTrue);
 
       await c.authenticate();
       await pumpEventQueue();
-      expect(c.state, LockState.lockout);
+      expect(c.state, AppLockState.lockout);
       expect(c.privateContentVisible, isFalse);
       expect(c.message, contains('PIN'));
     });
@@ -311,7 +311,7 @@ void main() {
 
       await c.load();
       await pumpEventQueue();
-      expect(c.state, LockState.authenticating);
+      expect(c.state, AppLockState.authenticating);
 
       // The PIN screen or the prompt itself can push the app to background.
       c.onLifecycle(AppLifecycleState.paused);
@@ -330,7 +330,7 @@ void main() {
 
       await c.load();
       await pumpEventQueue();
-      expect(c.state, LockState.authenticating);
+      expect(c.state, AppLockState.authenticating);
 
       c.lockNow();
       expect(fake.cancelCalls, 1);
@@ -341,7 +341,7 @@ void main() {
 
       expect(c.isUnlocked, isFalse);
       expect(c.privateContentVisible, isFalse);
-      expect(c.state, LockState.locked);
+      expect(c.state, AppLockState.locked);
     });
 
     test('disposing during a prompt is safe', () async {
