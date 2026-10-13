@@ -103,7 +103,7 @@ class PlatformSpeechRecognizer implements SpeechRecognizerService {
           onStatus: _handleStatus,
         );
         if (!_initOk) {
-          _permissionDenied = !_stt.hasPermission;
+          _permissionDenied = !(await _stt.hasPermission);
         }
       }
       if (!_initOk) {
@@ -177,11 +177,11 @@ class PlatformSpeechRecognizer implements SpeechRecognizerService {
     _sessionOpen = true;
     try {
       await _stt.listen(
+        onResult: (SpeechRecognitionResult r) =>
+            onText(r.recognizedWords, r.finalResult),
         localeId: localeId,
         listenFor: const Duration(seconds: 60),
         pauseFor: const Duration(seconds: 4),
-        onResult: (SpeechRecognitionResult r) =>
-            onText(r.recognizedWords, r.finalResult),
         listenOptions: SpeechListenOptions(
           partialResults: true,
           cancelOnError: true,
