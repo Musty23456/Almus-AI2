@@ -1,7 +1,7 @@
 name: almus_ai
-description: ALMUS AI - a personal AI assistant (Phase 5, humanoid avatar).
+description: ALMUS AI - a personal AI assistant (Phase 9, on-device face detection and enrollment prototype).
 publish_to: 'none'
-version: 0.5.0+5
+version: 0.9.0+9
 
 environment:
   sdk: ^3.5.0
@@ -13,6 +13,14 @@ dependencies:
   path: ^1.9.0
   shared_preferences: ^2.3.3
   sqflite: ^2.4.1
+  # Phase 6: speech-to-text and text-to-speech (Android system engines).
+  speech_to_text: ^7.0.0
+  flutter_tts: ^4.2.0
+  # Phase 7: Android biometric prompt (fingerprint / face / device PIN).
+  local_auth: ^2.3.0
+  image_picker: ^1.1.2
+  google_mlkit_face_detection: ^0.13.1
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:
