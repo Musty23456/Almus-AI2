@@ -14,18 +14,21 @@ import '../services/memory_retrieval.dart';
 import '../services/chat_service.dart';
 import '../services/demo_chat_service.dart';
 import '../utils/ids.dart';
+import '../voice/voice_controller.dart';
 import 'memory_controller.dart';
 
 /// Holds the open conversation, the robot's state, and saves messages through
 /// a [ConversationRepository]. A storage problem never blocks chatting: the
 /// message stays on screen and [storageNotice] explains what happened.
-class ChatController extends ChangeNotifier {
+class ChatController extends ChangeNotifier implements VoiceAvatarHooks {
   ChatController({
     ChatService? service,
     Listenable? engineChanges,
     ConversationRepository? repository,
     this.persistent = true,
     this.memory,
+    this.onAssistantReply,
+    this.onConversationChanged,
     this.happyHold = const Duration(milliseconds: 1500),
   })  : service = service ?? DemoChatService(),
         repository = repository ?? MemoryConversationRepository(),
@@ -38,6 +41,14 @@ class ChatController extends ChangeNotifier {
 
   /// Personal memory (Phase 4). Null disables every memory feature.
   final MemoryController? memory;
+
+  /// Phase 6: called with every successful assistant reply (never with error
+  /// messages) so the voice feature can read it aloud.
+  final void Function(ChatMessage message)? onAssistantReply;
+
+  /// Phase 6: called when the open conversation is replaced, deleted or
+  /// cleared, so listening and speech stop instead of carrying over.
+  final VoidCallback? onConversationChanged;
 
   /// False when the database could not be opened (history will not survive a restart).
   final bool persistent;
@@ -69,6 +80,7 @@ class ChatController extends ChangeNotifier {
   List<MemoryItem> _lastMemoryUsed = const <MemoryItem>[];
 
   List<ChatMessage> get messages => List<ChatMessage>.unmodifiable(_messages);
+  @override
   bool get isBusy => _busy;
   bool get isDemo => service.isDemo;
   String get engineName => service.engineName;
@@ -116,8 +128,9 @@ class ChatController extends ChangeNotifier {
 
   /// Voice input (microphone) started or stopped. Drives LISTENING.
   ///
-  /// Phase 5 has no speech-to-text yet; a future voice feature just calls
-  /// this. While an AI request is pending, THINKING keeps priority.
+  /// Phase 6: called by the VoiceController while the microphone is open.
+  /// While an AI request is pending, THINKING keeps priority.
+  @override
   void setVoiceInputActive(bool active) {
     if (_disposed) return;
     _voiceInput = active;
@@ -132,18 +145,29 @@ class ChatController extends ChangeNotifier {
 
   /// Speech playback (text-to-speech) started or stopped. Drives TALKING.
   ///
-  /// Phase 5 has no text-to-speech yet, so after a reply the avatar talks
-  /// for a time based on the reply length. A future speech feature calls
-  /// this instead: TALKING then lasts exactly as long as the audio.
-  void setSpeechPlaybackActive(bool active) {
+  /// Without audio, after a reply the avatar talks for a time based on the
+  /// reply length. With text-to-speech (Phase 6) the VoiceController calls
+  /// this, so TALKING lasts as long as the audio: there is no phoneme data, so
+  /// the mouth animation is a generic talking loop, not true lip-sync.
+  ///
+  /// When playback ends on its own ([natural] true) a brief HAPPY smile
+  /// precedes IDLE (the Phase 5 behaviour). When the user stopped it or it
+  /// failed ([natural] false) the avatar goes straight to IDLE.
+  @override
+  void setSpeechPlaybackActive(bool active, {bool natural = true}) {
     if (_disposed) return;
     _speechPlayback = active;
     if (active) {
       _idleTimer?.cancel();
       if (!_busy && !_voiceInput) robotState.value = RobotState.talking;
     } else if (!_busy && robotState.value == RobotState.talking) {
-      robotState.value = RobotState.happy;
-      _scheduleIdle(happyHold);
+      if (natural) {
+        robotState.value = RobotState.happy;
+        _scheduleIdle(happyHold);
+      } else {
+        _idleTimer?.cancel();
+        robotState.value = RobotState.idle;
+      }
     }
   }
 
@@ -156,6 +180,7 @@ class ChatController extends ChangeNotifier {
 
   /// Shows ERROR for a few seconds, for failures outside chat (a future
   /// microphone or speech failure). Chat failures already do this.
+  @override
   void reportFailure() {
     if (_disposed) return;
     _voiceInput = false;
@@ -200,6 +225,8 @@ class ChatController extends ChangeNotifier {
       robotState.value = RobotState.talking;
       notifyListeners();
       _enqueueSave(assistantMessage);
+      // Phase 6: let the voice feature read the reply aloud (if enabled).
+      onAssistantReply?.call(assistantMessage);
       if (!_speechPlayback) {
         // No audio engine: simulate speaking time, then a short smile.
         _scheduleIdle(
@@ -428,6 +455,7 @@ class ChatController extends ChangeNotifier {
   }
 
   void _resetState() {
+    onConversationChanged?.call();
     _idleTimer?.cancel();
     _generation++;
     _messages.clear();

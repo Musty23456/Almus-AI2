@@ -8,8 +8,14 @@ import '../controllers/memory_controller.dart';
 import '../controllers/settings_controller.dart';
 import '../data/conversation_repository.dart';
 import '../data/memory_repository.dart';
+import '../models/chat_message.dart';
+import '../security/app_lock_controller.dart';
 import '../services/backend_client.dart';
 import '../services/chat_service.dart';
+import '../voice/speech_recognizer.dart';
+import '../voice/speech_synthesizer.dart';
+import '../voice/voice_controller.dart';
+import '../voice/voice_settings_store.dart';
 import 'chat_screen.dart';
 import 'history_screen.dart';
 import 'home_screen.dart';
@@ -28,7 +34,15 @@ class AppShell extends StatefulWidget {
     required this.memoryRepository,
     this.persistentHistory = true,
     this.chatService,
+    this.speechRecognizer,
+    this.speechSynthesizer,
+    this.voiceSettings,
+    this.appLock,
   });
+
+  /// Phase 7 biometric lock (null = no lock). Used to stop speech while the
+  /// app is locked and to show the Security section in Settings.
+  final AppLockController? appLock;
 
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode> onThemeModeChanged;
@@ -39,11 +53,16 @@ class AppShell extends StatefulWidget {
   final bool persistentHistory;
   final ChatService? chatService;
 
+  /// Phase 6 voice. All three must be given to enable voice features.
+  final SpeechRecognizerService? speechRecognizer;
+  final SpeechSynthesizerService? speechSynthesizer;
+  final VoiceSettingsController? voiceSettings;
+
   @override
   State<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   late final MemoryController _memory =
       MemoryController(widget.memoryRepository);
   late final ChatController _chat = ChatController(
@@ -52,20 +71,64 @@ class _AppShellState extends State<AppShell> {
     repository: widget.repository,
     persistent: widget.persistentHistory,
     memory: _memory,
+    onAssistantReply: (ChatMessage m) {
+      // Never read a private reply aloud while the lock screen is showing.
+      if (widget.appLock?.privateContentVisible == false) return;
+      _voice?.handleReply(m);
+    },
+    onConversationChanged: () => _voice?.stopAll(),
   );
+  VoiceController? _voice;
   late final HistoryController _history = HistoryController(widget.repository);
   int _index = 0;
+
+  VoiceController? _buildVoice() {
+    final SpeechRecognizerService? recognizer = widget.speechRecognizer;
+    final SpeechSynthesizerService? synthesizer = widget.speechSynthesizer;
+    final VoiceSettingsController? settings = widget.voiceSettings;
+    if (recognizer == null || synthesizer == null || settings == null) {
+      return null;
+    }
+    return VoiceController(
+      recognizer: recognizer,
+      synthesizer: synthesizer,
+      settings: settings,
+      avatar: _chat,
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Never keep listening or talking in the background. The permission
+    // dialog only makes the app "inactive", which is deliberately ignored.
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      _voice?.interrupt();
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+    _voice = _buildVoice();
+    WidgetsBinding.instance.addObserver(this);
+    widget.appLock?.addListener(_onLockChanged);
     // Reopen the most recent saved conversation and load personal memory.
     unawaited(_chat.restoreLatest());
     unawaited(_memory.load());
   }
 
+  /// As soon as the app locks, stop listening and talking.
+  void _onLockChanged() {
+    if (widget.appLock?.privateContentVisible == false) _voice?.interrupt();
+  }
+
   @override
   void dispose() {
+    widget.appLock?.removeListener(_onLockChanged);
+    WidgetsBinding.instance.removeObserver(this);
+    _voice?.dispose();
     _history.dispose();
     _chat.dispose();
     _memory.dispose();
@@ -77,7 +140,12 @@ class _AppShellState extends State<AppShell> {
   Widget _page() {
     return switch (_index) {
       0 => HomeScreen(chat: _chat, onNavigate: _go),
-      1 => ChatScreen(chat: _chat, memory: _memory),
+      1 => ChatScreen(
+          chat: _chat,
+          memory: _memory,
+          voice: _voice,
+          voiceSettings: widget.voiceSettings,
+        ),
       2 => HistoryScreen(
           chat: _chat,
           history: _history,
@@ -90,6 +158,9 @@ class _AppShellState extends State<AppShell> {
           onThemeModeChanged: widget.onThemeModeChanged,
           settings: widget.settings,
           backend: widget.backend,
+          voiceSettings: widget.voiceSettings,
+          voice: _voice,
+          appLock: widget.appLock,
         ),
     };
   }

@@ -9,12 +9,17 @@ import 'data/memory_repository.dart';
 import 'data/volatile_memory_repository.dart';
 import 'screens/app_shell.dart';
 import 'screens/splash_screen.dart';
+import 'security/app_lock_controller.dart';
 import 'services/backend_client.dart';
 import 'services/chat_service.dart';
 import 'services/routed_chat_service.dart';
 import 'services/settings_store.dart';
 import 'theme/app_theme.dart';
+import 'voice/speech_recognizer.dart';
+import 'voice/speech_synthesizer.dart';
+import 'voice/voice_settings_store.dart';
 import 'widgets/app_background.dart';
+import 'widgets/app_lock_gate.dart';
 
 /// Root widget of ALMUS AI.
 class AlmusApp extends StatefulWidget {
@@ -27,7 +32,16 @@ class AlmusApp extends StatefulWidget {
     this.repository,
     this.memoryRepository,
     this.persistentHistory = true,
+    this.speechRecognizer,
+    this.speechSynthesizer,
+    this.voiceSettingsStore,
+    this.appLock,
   });
+
+  /// Phase 7: the biometric app lock. main.dart passes the real one; tests
+  /// pass one with a fake biometric service. Null means no lock at all, so
+  /// the app behaves exactly as in Phase 6.
+  final AppLockController? appLock;
 
   /// Whether to show the splash screen first (tests may skip it).
   final bool showSplash;
@@ -53,6 +67,16 @@ class AlmusApp extends StatefulWidget {
   /// False when the database could not be opened, so the UI can warn the user.
   final bool persistentHistory;
 
+  /// Phase 6 voice engines. main.dart passes the Android implementations;
+  /// tests pass fakes. Voice features (microphone, read aloud) are available
+  /// only when both are provided, so without them the app behaves exactly as
+  /// in Phase 5.
+  final SpeechRecognizerService? speechRecognizer;
+  final SpeechSynthesizerService? speechSynthesizer;
+
+  /// Where voice preferences are stored (tests inject an in-memory store).
+  final VoiceSettingsStore? voiceSettingsStore;
+
   @override
   State<AlmusApp> createState() => _AlmusAppState();
 }
@@ -70,16 +94,25 @@ class _AlmusAppState extends State<AlmusApp> {
       widget.memoryRepository ?? VolatileMemoryRepository();
   late final ChatService _chatService = widget.chatService ??
       RoutedChatService(settings: _settings, backend: _backend);
+  late final VoiceSettingsController _voiceSettings = VoiceSettingsController(
+    widget.voiceSettingsStore ?? PrefsVoiceSettingsStore(),
+  );
+
+  bool get _voiceEnabled =>
+      widget.speechRecognizer != null && widget.speechSynthesizer != null;
 
   @override
   void initState() {
     super.initState();
     unawaited(_settings.load());
+    if (_voiceEnabled) unawaited(_voiceSettings.load());
+    unawaited(widget.appLock?.load());
   }
 
   @override
   void dispose() {
     _settings.dispose();
+    _voiceSettings.dispose();
     if (widget.backendClient == null) {
       _backend.close();
     }
@@ -94,8 +127,17 @@ class _AlmusAppState extends State<AlmusApp> {
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: _themeMode,
-      builder: (BuildContext context, Widget? child) =>
-          AppBackground(child: child ?? const SizedBox.shrink()),
+      builder: (BuildContext context, Widget? child) {
+        final Widget app = child ?? const SizedBox.shrink();
+        final AppLockController? lock = widget.appLock;
+        // The gate wraps the whole navigator, so the lock screen also covers
+        // dialogs and any screen that is open.
+        return AppBackground(
+          child: lock == null
+              ? app
+              : AppLockGate(controller: lock, child: app),
+        );
+      },
       home: AnimatedSwitcher(
         duration: const Duration(milliseconds: 400),
         child: _splashDone
@@ -110,6 +152,10 @@ class _AlmusAppState extends State<AlmusApp> {
                 repository: _repository,
                 memoryRepository: _memoryRepository,
                 persistentHistory: widget.persistentHistory,
+                speechRecognizer: widget.speechRecognizer,
+                speechSynthesizer: widget.speechSynthesizer,
+                voiceSettings: _voiceEnabled ? _voiceSettings : null,
+                appLock: widget.appLock,
               )
             : SplashScreen(
                 key: const ValueKey<String>('splash'),

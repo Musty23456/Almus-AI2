@@ -1,14 +1,22 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../controllers/settings_controller.dart';
 import '../models/app_settings.dart';
+import '../security/app_lock_controller.dart';
 import '../services/backend_client.dart';
 import '../services/chat_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_info.dart';
+import '../voice/voice_controller.dart';
+import '../voice/voice_settings.dart';
+import '../voice/voice_settings_store.dart';
 import 'avatar_lab_screen.dart';
+import 'face_enrollment_screen.dart';
 import '../widgets/glow_card.dart';
 import '../widgets/screen_header.dart';
+import '../widgets/security_settings_section.dart';
 
 /// Settings: Gemini connection, theme preference, app info, about and privacy.
 class SettingsScreen extends StatefulWidget {
@@ -18,7 +26,17 @@ class SettingsScreen extends StatefulWidget {
     required this.onThemeModeChanged,
     required this.settings,
     required this.backend,
+    this.voiceSettings,
+    this.voice,
+    this.appLock,
   });
+
+  /// Phase 7: biometric app lock. Null hides the Security section.
+  final AppLockController? appLock;
+
+  /// Phase 6: voice preferences. Null hides the Voice section.
+  final VoiceSettingsController? voiceSettings;
+  final VoiceController? voice;
 
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode> onThemeModeChanged;
@@ -237,6 +255,134 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Widget _voiceCard(ThemeData theme, VoiceSettingsController controller) {
+    final ColorScheme cs = theme.colorScheme;
+    return GlowCard(
+      child: ValueListenableBuilder<VoiceSettings>(
+        valueListenable: controller,
+        builder: (BuildContext context, VoiceSettings v, Widget? _) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              SwitchListTile(
+                key: const Key('auto_speak_switch'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Read replies aloud automatically'),
+                subtitle: const Text(
+                  'Error messages are never read aloud. You can still tap the speaker under any reply.',
+                ),
+                value: v.autoSpeak,
+                onChanged: (bool on) {
+                  unawaited(controller.save(v.copyWith(autoSpeak: on)));
+                  if (!on) unawaited(widget.voice?.stopSpeaking() ?? Future<void>.value());
+                },
+              ),
+              SwitchListTile(
+                key: const Key('auto_send_switch'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Send voice messages automatically'),
+                subtitle: const Text(
+                  'Off: what you say appears in the message box so you can check it first.',
+                ),
+                value: v.autoSendVoice,
+                onChanged: (bool on) =>
+                    unawaited(controller.save(v.copyWith(autoSendVoice: on))),
+              ),
+              Divider(height: 20, color: cs.outlineVariant),
+              const Text(
+                'Voice language',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<VoiceLanguage>(
+                  key: const Key('voice_language_selector'),
+                  showSelectedIcon: false,
+                  segments: <ButtonSegment<VoiceLanguage>>[
+                    for (final VoiceLanguage l in VoiceLanguage.values)
+                      ButtonSegment<VoiceLanguage>(
+                        value: l,
+                        label: Text(l.label),
+                      ),
+                  ],
+                  selected: <VoiceLanguage>{v.language},
+                  onSelectionChanged: (Set<VoiceLanguage> selection) => unawaited(
+                    controller.save(v.copyWith(language: selection.first)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Used for listening and for the reading voice. Hausa works only if your phone\'s speech engine has Hausa installed; many phones do not. If it is missing, Almus tells you instead of guessing.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  height: 1.4,
+                ),
+              ),
+              Divider(height: 20, color: cs.outlineVariant),
+              Text('Speech speed: ${v.speechRate.toStringAsFixed(2)}'),
+              Slider(
+                key: const Key('speech_rate_slider'),
+                min: VoiceSettings.minRate,
+                max: VoiceSettings.maxRate,
+                divisions: 16,
+                value: v.speechRate,
+                onChanged: (double r) =>
+                    controller.value = v.copyWith(speechRate: r),
+                onChangeEnd: (double r) =>
+                    unawaited(controller.save(controller.value)),
+              ),
+              Text('Volume: ${(v.volume * 100).round()}%'),
+              Slider(
+                key: const Key('speech_volume_slider'),
+                min: 0,
+                max: 1,
+                divisions: 10,
+                value: v.volume,
+                onChanged: (double vol) =>
+                    controller.value = v.copyWith(volume: vol),
+                onChangeEnd: (double vol) =>
+                    unawaited(controller.save(controller.value)),
+              ),
+              if (widget.voice != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    key: const Key('test_voice_button'),
+                    onPressed: () => unawaited(
+                      widget.voice!.speakText(
+                        v.language == VoiceLanguage.hausa
+                            ? 'Sannu, ni ne Almus. Ina jin ka.'
+                            : 'Hello, I am Almus. This is how I sound.',
+                      ),
+                    ),
+                    icon: const Icon(Icons.volume_up_outlined),
+                    label: const Text('Test voice'),
+                  ),
+                ),
+              if (widget.voice?.notice != null) ...<Widget>[
+                const SizedBox(height: 8),
+                Text(
+                  widget.voice!.notice!,
+                  style: TextStyle(color: cs.error, height: 1.4),
+                ),
+              ],
+              const SizedBox(height: 8),
+              Text(
+                'The microphone opens only when you tap it and closes when you stop. The app never records or stores audio; Android\'s speech service turns it into text. Some engines send audio to Google for recognition.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
@@ -252,6 +398,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const SectionLabel('Gemini connection'),
         _connectionCard(theme),
+        if (widget.voiceSettings != null) ...<Widget>[
+          const SectionLabel('Voice'),
+          _voiceCard(theme, widget.voiceSettings!),
+        ],
+        if (widget.appLock != null) ...<Widget>[
+          const SectionLabel('Security'),
+          SecuritySettingsCard(controller: widget.appLock!),
+        ],
+        const SectionLabel('Face security · Phase 9'),
+        GlowCard(
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const CircleAvatar(child: Icon(Icons.face_retouching_natural)),
+            title: const Text('Face detection & enrollment'),
+            subtitle: const Text('Capture a private face sample on this device'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const FaceEnrollmentScreen(),
+              ),
+            ),
+          ),
+        ),
         const SectionLabel('Appearance'),
         GlowCard(
           child: Column(
@@ -360,7 +529,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             'backend that you deploy yourself (without one the app stays in '
             'DEMO MODE). Phase 3 saves your chats on this phone. Phase 4 adds '
             'personal memory that you control. Phase 5 gives the robot a more '
-            'expressive animated avatar.',
+            'expressive animated avatar. Phase 6 adds voice input and spoken '
+            'replies. Phase 7 adds a biometric lock that uses Android\'s own '
+            'fingerprint / face prompt.',
             style: body,
           ),
         ),
@@ -386,6 +557,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               SizedBox(height: 10),
               _BulletRow(
                 'The Gemini API key is never stored in the app. Only the backend URL and your access token are kept in the phone\'s private app storage, separate from the chat database.',
+              ),
+              SizedBox(height: 10),
+              _BulletRow(
+                'Voice: the microphone opens only after you tap it, and a bar shows while it is on. Audio is never saved by the app. Android\'s speech service converts it to text, and some engines send audio to Google to do so. Spoken replies use your phone\'s text-to-speech engine.',
+              ),
+              SizedBox(height: 10),
+              _BulletRow(
+                'Security: the app lock uses Android\'s biometric prompt. The app never opens the camera for it and never receives or stores fingerprints, face data or iris data; Android only answers yes or no. Nothing about your biometrics is sent to Gemini or any server. The lock hides the app but does not encrypt the local database.',
               ),
               SizedBox(height: 10),
               _BulletRow('No account, analytics or advertising components are included.'),

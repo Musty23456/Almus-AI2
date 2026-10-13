@@ -6,9 +6,21 @@ import '../utils/formatters.dart';
 
 /// A single chat bubble with a timestamp.
 class MessageBubble extends StatelessWidget {
-  const MessageBubble({super.key, required this.message});
+  const MessageBubble({
+    super.key,
+    required this.message,
+    this.onSpeak,
+    this.speaking = false,
+  });
 
   final ChatMessage message;
+
+  /// Phase 6: when set, a small speaker button reads this reply aloud (or
+  /// stops it while [speaking]). Null hides the button.
+  final VoidCallback? onSpeak;
+
+  /// True while this message is being read aloud.
+  final bool speaking;
 
   @override
   Widget build(BuildContext context) {
@@ -99,9 +111,31 @@ class MessageBubble extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 2),
-            Text(
-              formatTime(message.timestamp),
-              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  formatTime(message.timestamp),
+                  style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                ),
+                if (onSpeak != null)
+                  IconButton(
+                    key: ValueKey<String>('speak_${message.id}'),
+                    tooltip: speaking ? 'Stop reading' : 'Read aloud',
+                    onPressed: onSpeak,
+                    iconSize: 18,
+                    visualDensity: VisualDensity.compact,
+                    constraints:
+                        const BoxConstraints(minWidth: 36, minHeight: 32),
+                    padding: EdgeInsets.zero,
+                    color: speaking ? cs.primary : cs.onSurfaceVariant,
+                    icon: Icon(
+                      speaking
+                          ? Icons.stop_circle_outlined
+                          : Icons.volume_up_outlined,
+                    ),
+                  ),
+              ],
             ),
           ],
         ),
