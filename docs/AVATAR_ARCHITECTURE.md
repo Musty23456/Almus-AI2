@@ -34,7 +34,12 @@ Implemented in `ChatController` (`robotState`):
 | After talking ends, or `celebrate()` (tap the Home avatar) | HAPPY ~1.5 s, then IDLE |
 | Chat failure, or `reportFailure()` | ERROR ~3 s, then IDLE |
 
-**Important:** Phase 5 contains no microphone/speech-to-text and no
+**Update (Phase 6):** the hooks below are now driven by the real voice
+feature (see `docs/VOICE_ARCHITECTURE.md`). `setSpeechPlaybackActive` gained a
+`natural` flag: true = brief HAPPY then IDLE, false (user stop, pause, failure)
+= straight to IDLE. Original Phase 5 note follows.
+
+**Important:** Phase 5 contained no microphone/speech-to-text and no
 text-to-speech. `setVoiceInputActive` and `setSpeechPlaybackActive` are ready
 hooks for those future features. Until then LISTENING follows typing, and
 TALKING is simulated for a time based on reply length. When real speech
