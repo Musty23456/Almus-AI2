@@ -20,31 +20,31 @@ class LockScreen extends StatefulWidget {
   final AppLockController controller;
 
   /// Text shown under the eye for each state.
-  static String statusLabel(LockState state) {
+  static String statusLabel(AppLockState state) {
     return switch (state) {
-      LockState.locked => 'SYSTEM LOCKED',
-      LockState.initializing => 'INITIALIZING SECURE SCAN',
-      LockState.scanning => 'SCANNING...',
-      LockState.authenticating => 'WAITING FOR ANDROID SECURITY',
-      LockState.verified => 'IDENTITY VERIFIED',
-      LockState.failed => 'AUTHENTICATION FAILED',
-      LockState.cancelled => 'AUTHENTICATION CANCELLED',
-      LockState.unavailable => 'BIOMETRICS UNAVAILABLE',
-      LockState.lockout => 'TEMPORARILY LOCKED OUT',
+      AppLockState.locked => 'SYSTEM LOCKED',
+      AppLockState.initializing => 'INITIALIZING SECURE SCAN',
+      AppLockState.scanning => 'SCANNING...',
+      AppLockState.authenticating => 'WAITING FOR ANDROID SECURITY',
+      AppLockState.verified => 'IDENTITY VERIFIED',
+      AppLockState.failed => 'AUTHENTICATION FAILED',
+      AppLockState.cancelled => 'AUTHENTICATION CANCELLED',
+      AppLockState.unavailable => 'BIOMETRICS UNAVAILABLE',
+      AppLockState.lockout => 'TEMPORARILY LOCKED OUT',
     };
   }
 
-  static EyeScannerState scannerFor(LockState state) {
+  static EyeScannerState scannerFor(AppLockState state) {
     return switch (state) {
-      LockState.locked => EyeScannerState.locked,
-      LockState.initializing => EyeScannerState.idle,
-      LockState.scanning => EyeScannerState.scanning,
-      LockState.authenticating => EyeScannerState.scanning,
-      LockState.verified => EyeScannerState.verified,
-      LockState.failed => EyeScannerState.failed,
-      LockState.cancelled => EyeScannerState.locked,
-      LockState.unavailable => EyeScannerState.locked,
-      LockState.lockout => EyeScannerState.failed,
+      AppLockState.locked => EyeScannerState.locked,
+      AppLockState.initializing => EyeScannerState.idle,
+      AppLockState.scanning => EyeScannerState.scanning,
+      AppLockState.authenticating => EyeScannerState.scanning,
+      AppLockState.verified => EyeScannerState.verified,
+      AppLockState.failed => EyeScannerState.failed,
+      AppLockState.cancelled => EyeScannerState.locked,
+      AppLockState.unavailable => EyeScannerState.locked,
+      AppLockState.lockout => EyeScannerState.failed,
     };
   }
 
@@ -53,7 +53,7 @@ class LockScreen extends StatefulWidget {
 }
 
 class _LockScreenState extends State<LockScreen> {
-  late LockState _last = widget.controller.state;
+  late AppLockState _last = widget.controller.state;
 
   @override
   void initState() {
@@ -79,21 +79,21 @@ class _LockScreenState extends State<LockScreen> {
 
   /// Small vibration on success or failure (system haptics, no sound files).
   void _onChange() {
-    final LockState now = widget.controller.state;
+    final AppLockState now = widget.controller.state;
     if (now == _last) return;
     _last = now;
-    if (now == LockState.verified) {
+    if (now == AppLockState.verified) {
       unawaited(HapticFeedback.mediumImpact());
-    } else if (now == LockState.failed || now == LockState.lockout) {
+    } else if (now == AppLockState.failed || now == AppLockState.lockout) {
       unawaited(HapticFeedback.heavyImpact());
     }
   }
 
-  Color _statusColor(LockState s) {
+  Color _statusColor(AppLockState s) {
     return switch (s) {
-      LockState.verified => AlmusColors.mint,
-      LockState.failed || LockState.lockout => AlmusColors.error,
-      LockState.unavailable || LockState.cancelled => AlmusColors.amber,
+      AppLockState.verified => AlmusColors.mint,
+      AppLockState.failed || AppLockState.lockout => AlmusColors.error,
+      AppLockState.unavailable || AppLockState.cancelled => AlmusColors.amber,
       _ => AlmusColors.cyan,
     };
   }
@@ -105,18 +105,18 @@ class _LockScreenState extends State<LockScreen> {
       listenable: widget.controller,
       builder: (BuildContext context, Widget? _) {
         final AppLockController c = widget.controller;
-        final LockState s = c.state;
-        final bool busy = s == LockState.initializing ||
-            s == LockState.scanning ||
-            s == LockState.authenticating ||
-            s == LockState.verified;
-        final bool unavailable = s == LockState.unavailable;
+        final AppLockState s = c.state;
+        final bool busy = s == AppLockState.initializing ||
+            s == AppLockState.scanning ||
+            s == AppLockState.authenticating ||
+            s == AppLockState.verified;
+        final bool unavailable = s == AppLockState.unavailable;
         final bool canTryBiometric = !unavailable || c.capabilities.deviceSupported;
 
         String primaryLabel = 'AUTHENTICATE';
-        if (s == LockState.failed ||
-            s == LockState.cancelled ||
-            s == LockState.lockout) {
+        if (s == AppLockState.failed ||
+            s == AppLockState.cancelled ||
+            s == AppLockState.lockout) {
           primaryLabel = 'TRY AGAIN';
         }
         if (!c.capabilities.hasBiometrics && c.capabilities.deviceSupported) {

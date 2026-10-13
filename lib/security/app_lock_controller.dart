@@ -8,7 +8,7 @@ import 'lock_settings.dart';
 import 'privacy_screen.dart';
 
 /// What the lock screen is doing right now.
-enum LockState {
+enum AppLockState {
   /// Waiting for the user to authenticate.
   locked,
 
@@ -86,7 +86,7 @@ class AppLockController extends ChangeNotifier {
 
   LockSettings _settings = const LockSettings();
   BiometricCapabilities _caps = BiometricCapabilities.none;
-  LockState _state = LockState.initializing;
+  AppLockState _state = AppLockState.initializing;
   String? _message;
 
   bool _loaded = false;
@@ -110,7 +110,7 @@ class AppLockController extends ChangeNotifier {
 
   LockSettings get settings => _settings;
   BiometricCapabilities get capabilities => _caps;
-  LockState get state => _state;
+  AppLockState get state => _state;
   String? get message => _message;
   bool get loaded => _loaded;
   bool get isUnlocked => _unlocked;
@@ -125,7 +125,7 @@ class AppLockController extends ChangeNotifier {
   /// Show the "use PIN / pattern" button.
   bool get showFallbackButton {
     if (!_caps.deviceSupported) return false;
-    if (_state == LockState.lockout) return true;
+    if (_state == AppLockState.lockout) return true;
     // With no biometric enrolled the PIN is the only way in, so offer it
     // even if the preference is off (otherwise the user would be locked out).
     return _settings.allowDeviceCredential || !_caps.hasBiometrics;
@@ -134,14 +134,14 @@ class AppLockController extends ChangeNotifier {
   /// Only when the phone has no secure method at all can the user choose to
   /// continue without a lock (there is nothing to protect the data anyway).
   bool get showContinueWithoutLock =>
-      _state == LockState.unavailable && !_caps.deviceSupported;
+      _state == AppLockState.unavailable && !_caps.deviceSupported;
 
   // ---------------------------------------------------------------- loading
 
   Future<void> load() async {
     if (_loaded || _loading || _disposed) return;
     _loading = true;
-    _setState(LockState.initializing);
+    _setState(AppLockState.initializing);
     try {
       _settings = await _store.load();
     } on Exception {
@@ -247,7 +247,7 @@ class AppLockController extends ChangeNotifier {
     _unlocked = false;
     _promptedThisLock = false;
     _message = null;
-    _state = _caps.deviceSupported ? LockState.locked : LockState.unavailable;
+    _state = _caps.deviceSupported ? AppLockState.locked : AppLockState.unavailable;
     if (wasBusy) unawaited(_service.cancel());
     _notify();
   }
@@ -255,7 +255,7 @@ class AppLockController extends ChangeNotifier {
   void _autoPrompt() {
     if (!_loaded || _unlocked || !_settings.enabled) return;
     if (_promptedThisLock || !_foreground || inProgress) return;
-    if (_state != LockState.locked) return;
+    if (_state != AppLockState.locked) return;
     _promptedThisLock = true;
     unawaited(authenticate());
   }
@@ -278,7 +278,7 @@ class AppLockController extends ChangeNotifier {
     final int token = ++_attempt;
     try {
       _message = null;
-      _setState(LockState.initializing);
+      _setState(AppLockState.initializing);
       await _pause(initDuration);
       if (!_isCurrent(token)) return;
 
@@ -290,11 +290,11 @@ class AppLockController extends ChangeNotifier {
       }
 
       final bool credential = useDeviceCredential || !_caps.hasBiometrics;
-      _setState(LockState.scanning);
+      _setState(AppLockState.scanning);
       await _pause(scanDuration);
       if (!_isCurrent(token)) return;
 
-      _setState(LockState.authenticating);
+      _setState(AppLockState.authenticating);
       AuthOutcome outcome;
       try {
         // A normal attempt asks for a biometric only. The PIN/pattern is
@@ -320,7 +320,7 @@ class AppLockController extends ChangeNotifier {
     switch (outcome) {
       case AuthOutcome.success:
         _message = null;
-        _setState(LockState.verified);
+        _setState(AppLockState.verified);
         await _pause(successHold);
         if (!_isCurrent(token)) return;
         _unlocked = true;
@@ -328,16 +328,16 @@ class AppLockController extends ChangeNotifier {
         _notify();
       case AuthOutcome.failed:
         _message = 'Android did not confirm your identity. You can try again.';
-        _setState(LockState.failed);
+        _setState(AppLockState.failed);
       case AuthOutcome.cancelled:
         _message = 'Authentication was cancelled. The app stays locked.';
-        _setState(LockState.cancelled);
+        _setState(AppLockState.cancelled);
       case AuthOutcome.notEnrolled:
         await _refreshCapabilities();
         if (!_isCurrent(token)) return;
         _message = 'No biometric is enrolled on this phone. Add one in '
             'Android Settings > Security, or use your device PIN.';
-        _setState(LockState.unavailable);
+        _setState(AppLockState.unavailable);
       case AuthOutcome.unavailable:
         await _refreshCapabilities();
         if (!_isCurrent(token)) return;
@@ -345,15 +345,15 @@ class AppLockController extends ChangeNotifier {
       case AuthOutcome.lockedOut:
         _message = 'Too many wrong attempts. Android has paused biometrics '
             'for a short time. Wait a little, or use your device PIN.';
-        _setState(LockState.lockout);
+        _setState(AppLockState.lockout);
       case AuthOutcome.permanentlyLockedOut:
         _message = 'Biometrics are blocked until you unlock the phone with '
             'its PIN, pattern or password. Use your device PIN below.';
-        _setState(LockState.lockout);
+        _setState(AppLockState.lockout);
       case AuthOutcome.error:
         _message = 'Something went wrong while talking to Android security. '
             'The app stays locked. Please try again.';
-        _setState(LockState.failed);
+        _setState(AppLockState.failed);
     }
   }
 
@@ -361,7 +361,7 @@ class AppLockController extends ChangeNotifier {
     _message = 'This phone has no fingerprint, face or screen lock set up, '
         'so the app cannot be protected. Add a screen lock in Android '
         'Settings > Security, then come back.';
-    _setState(LockState.unavailable);
+    _setState(AppLockState.unavailable);
   }
 
   /// Offered only when the phone has no secure method at all.
@@ -497,7 +497,7 @@ class AppLockController extends ChangeNotifier {
   Future<void> _pause(Duration d) =>
       d == Duration.zero ? Future<void>.value() : Future<void>.delayed(d);
 
-  void _setState(LockState s) {
+  void _setState(AppLockState s) {
     _state = s;
     _notify();
   }
