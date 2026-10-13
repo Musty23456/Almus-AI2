@@ -44,7 +44,11 @@ jobs:
           if ! grep -q 'android.permission.INTERNET' "$MANIFEST"; then
             sed -i 's|<application|<uses-permission android:name="android.permission.INTERNET"/>\n    <application|' "$MANIFEST"
           fi
-          grep -n 'android:label\|INTERNET' "$MANIFEST"
+          # Phase 6: microphone permission + speech/TTS service queries (idempotent).
+          python3 tool/patch_android_manifest.py "$MANIFEST"
+          # Phase 7: USE_BIOMETRIC, FlutterFragmentActivity, FLAG_SECURE channel, AppCompat theme (idempotent).
+          python3 tool/patch_android_biometric.py
+          grep -n 'android:label\|INTERNET\|RECORD_AUDIO\|USE_BIOMETRIC\|RecognitionService\|TTS_SERVICE' "$MANIFEST"
 
       # Database tests run on the CI machine through sqflite_common_ffi, which needs the SQLite library.
       - name: Install SQLite library for tests
