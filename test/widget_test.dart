@@ -175,7 +175,7 @@ void main() {
     await tester.pump();
     await _openTab(tester, Icons.settings_outlined);
 
-    expect(find.text('0.5.0'), findsOneWidget);
+    expect(find.text('0.7.0'), findsOneWidget);
     expect(find.text('DEMO MODE (simulated)'), findsOneWidget);
   });
 
