@@ -140,7 +140,7 @@ void main() {
 
   test('attachment removal, then clear', () async {
     final FakePicker p = FakePicker()..next = <PickedAttachment>[pick('a.txt', utf8Bytes('a')), pick('b.txt', utf8Bytes('b'))];
-    final AttachmentController c = make(p);
+    final AttachmentController c = make(p, max: 6);
     await c.addFrom(AttachmentSource.text);
     c.remove(c.items.first.id);
     expect(c.items.map((ChatAttachment a) => a.name), <String>['b.txt']);
