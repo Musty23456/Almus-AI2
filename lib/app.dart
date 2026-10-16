@@ -27,6 +27,9 @@ import 'voice/voice_settings_store.dart';
 import 'widgets/app_background.dart';
 import 'widgets/app_lock_gate.dart';
 
+// Local AI (Phase 5)
+import 'local_ai/local_ai_service.dart';
+
 /// Root widget of ALMUS AI.
 class AlmusApp extends StatefulWidget {
   const AlmusApp({
@@ -48,6 +51,7 @@ class AlmusApp extends StatefulWidget {
     this.attachmentPicker,
     this.voiceConsent,
     this.routingStore,
+    this.localAI,
   });
 
   /// Phase 4: where the user's provider / fallback choices are stored (tests inject an in-memory store).
@@ -102,6 +106,10 @@ class AlmusApp extends StatefulWidget {
   /// Where voice preferences are stored (tests inject an in-memory store).
   final VoiceSettingsStore? voiceSettingsStore;
 
+  /// Phase 5: local deterministic tools service (optional). When provided,
+  /// RoutedChatService may consult it before calling the backend.
+  final LocalAIService? localAI;
+
   @override
   State<AlmusApp> createState() => _AlmusAppState();
 }
@@ -115,14 +123,14 @@ class _AlmusAppState extends State<AlmusApp> {
   late final BackendClient _backend = widget.backendClient ?? BackendClient();
   late final ConversationRepository _repository =
       widget.repository ?? MemoryConversationRepository();
-  late final MemoryRepository _memoryRepository =
+  late final MemoryRepository _memory_repository =
       widget.memoryRepository ?? VolatileMemoryRepository();
   late final RoutingPreferencesController _routing =
       RoutingPreferencesController(widget.routingStore ?? PrefsRoutingPreferencesStore());
   late final ProviderStatusController _providerStatus =
       ProviderStatusController(backend: _backend, settings: _settings);
   late final ChatService _chatService = widget.chatService ??
-      RoutedChatService(settings: _settings, backend: _backend, routing: _routing);
+      RoutedChatService(settings: _settings, backend: _backend, routing: _routing, localAI: widget.localAI);
   late final VoiceSettingsController _voiceSettings = VoiceSettingsController(
     widget.voiceSettingsStore ?? PrefsVoiceSettingsStore(),
   );
@@ -182,7 +190,7 @@ class _AlmusAppState extends State<AlmusApp> {
                 settings: _settings,
                 backend: _backend,
                 repository: _repository,
-                memoryRepository: _memoryRepository,
+                memoryRepository: _memory_repository,
                 persistentHistory: widget.persistentHistory,
                 speechRecognizer: widget.speechRecognizer,
                 speechSynthesizer: widget.speechSynthesizer,
