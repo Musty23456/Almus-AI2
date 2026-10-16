@@ -592,6 +592,7 @@ class VoiceController extends ChangeNotifier {
     onTranscript = null;
     onCancelled = null;
     unawaited(recognizer.cancel());
+    recognizer.dispose();
     unawaited(synthesizer.stop());
     super.dispose();
   }
