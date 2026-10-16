@@ -1,3 +1,5 @@
+// Register LocalAIService and tools at app startup.
+
 import 'package:flutter/material.dart';
 
 import 'app.dart';
@@ -13,6 +15,16 @@ import 'security/privacy_screen.dart';
 import 'voice/speech_recognizer.dart';
 import 'voice/speech_synthesizer.dart';
 
+// Local AI
+import 'local_ai/local_ai_service.dart';
+import 'local_ai/tools/calculator.dart';
+import 'local_ai/tools/unit_conversion.dart';
+import 'local_ai/tools/text_tools.dart';
+import 'local_ai/tools/statistics.dart';
+import 'local_ai/tools/document_utils.dart';
+import 'local_ai/tools/local_history.dart';
+import 'local_ai/tools/memory_tools.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Optional local avatar tuning file. Missing/invalid -> built-in defaults.
@@ -25,6 +37,17 @@ Future<void> main() async {
     store: PrefsLockSettingsStore(),
     privacy: ChannelPrivacyScreen(),
   );
+
+  // Create and register local tools (Phase 5)
+  final LocalAIService localAI = LocalAIService();
+  localAI.register(CalculatorTool());
+  localAI.register(UnitConversionTool());
+  localAI.register(TextTools());
+  localAI.register(StatisticsTool());
+  localAI.register(DocumentUtils());
+  localAI.register(LocalHistoryTool(result.persistent));
+  localAI.register(MemoryTools(result.memory));
+
   runApp(
     AlmusApp(
       appLock: appLock,
@@ -42,6 +65,8 @@ Future<void> main() async {
       // the microphone or a reply is read aloud.
       speechRecognizer: PlatformSpeechRecognizer(),
       speechSynthesizer: PlatformSpeechSynthesizer(),
+      // Provide the local AI service to the app so RoutedChatService can use it.
+      localAI: localAI,
     ),
   );
 }
