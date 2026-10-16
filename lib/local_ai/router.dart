@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'registry.dart';
 import 'tool.dart';
 
@@ -32,7 +30,6 @@ class LocalRouter {
 
     if (request is String) {
       final String s = request.trim().toLowerCase();
-      // calculator cues
       if (s.startsWith('calc') || s.startsWith('calculate') || s.startsWith('what is') || RegExp(r"^[0-9\-\(]").hasMatch(s)) {
         if (registry.get('calculator') != null) return RouteDecision(toolId: 'calculator');
       }
@@ -49,7 +46,6 @@ class LocalRouter {
       if (s.contains('word count') || s.contains('character count') || s.contains('line count')) {
         if (registry.get('text_tools') != null) return RouteDecision(toolId: 'text_tools');
       }
-      // Fallback ambiguous
       return RouteDecision(ambiguous: true, message: 'Could not deterministically route the request.');
     }
 

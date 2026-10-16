@@ -39,12 +39,14 @@ class StatisticsTool extends Tool<StatisticsInput, StatisticsOutput> {
     final mean = vals.reduce((a, b) => a + b) / n;
     final median = (n % 2 == 1) ? vals[n ~/ 2] : (vals[n ~/ 2 - 1] + vals[n ~/ 2]) / 2.0;
     final freq = <double, int>{};
-    for (final v in vals) freq[v] = (freq[v] ?? 0) + 1;
+    for (final v in vals) {
+      freq[v] = (freq[v] ?? 0) + 1;
+    }
     final maxFreq = freq.values.fold<int>(0, (p, e) => e > p ? e : p);
     final mode = freq.entries.where((e) => e.value == maxFreq).map((e) => e.key).toList();
     final range = vals.last - vals.first;
-    final variance = vals.map((v) => (v - mean) * (v - mean)).reduce((a, b) => a + b) / n; // population variance
-    final stddev = (variance).sqrt();
+    final variance = vals.map((v) => (v - mean) * (v - mean)).reduce((a, b) => a + b) / n;
+    final stddev = variance.sqrt();
 
     final out = StatisticsOutput(mean: mean, median: median, mode: mode, range: range, variance: variance, stddev: stddev, frequency: freq);
     return ToolResult(result: out);
@@ -55,16 +57,15 @@ extension on double {
   double sqrt() => Math.sqrt(this);
 }
 
-// Minimal math helper to avoid importing dart:math at top-level for extension
 class Math {
-  static double sqrt(double x) => x >= 0 ? double.parse(x.toString()).isFinite ? x.sqrtInternal() : double.nan : double.nan;
-}
+  static double sqrt(double x) => x >= 0 ? _sqrt(x) : double.nan;
 
-extension _Sqrt on double {
-  double sqrtInternal() => double.parse((this).toString())._fastSqrt();
-}
-
-// Use math from dart:math via a helper to keep implementation concise (fallback)
-extension _FastSqrt on double {
-  double _fastSqrt() => (this >= 0) ? (this).toDouble().isFinite ? (this).toDouble().toDouble() : this : double.nan;
+  static double _sqrt(double x) {
+    if (x == 0) return 0;
+    double guess = x;
+    for (int i = 0; i < 20; i++) {
+      guess = (guess + x / guess) / 2;
+    }
+    return guess;
+  }
 }

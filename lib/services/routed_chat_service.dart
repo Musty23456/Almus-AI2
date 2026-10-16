@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../ai/routing_preferences.dart';
 import '../attachments/attachment_models.dart';
 import '../attachments/attachment_plan.dart';
@@ -53,15 +55,13 @@ List<Map<String, String>> buildChatPayload(
 }
 
 /// Uses the real backend (Gemini) when a backend address is saved in Settings,
-/// otherwise falls back to the scripted demo engine. This class now also consults
-/// a LocalAIService for deterministic operations (Phase 5).
+/// otherwise falls back to the scripted demo engine.
 class RoutedChatService implements AttachmentCapableChatService, ReplyProvenanceSource {
   RoutedChatService({
     required this.settings,
     required this.backend,
     ChatService? demo,
     this.routing,
-    this.localAI,
   }) : demo = demo ?? DemoChatService();
 
   final SettingsController settings;
@@ -70,9 +70,6 @@ class RoutedChatService implements AttachmentCapableChatService, ReplyProvenance
 
   /// Phase 4: the user's provider choices (null = backend defaults, nothing extra is sent).
   final RoutingPreferencesController? routing;
-
-  /// Phase 5: local deterministic tools layer (optional).
-  final LocalAIService? localAI;
 
   ReplyProvenance? _lastProvenance;
 
@@ -102,11 +99,7 @@ class RoutedChatService implements AttachmentCapableChatService, ReplyProvenance
     List<ChatMessage> history = const <ChatMessage>[],
     String? memoryContext,
     required List<ChatAttachment> attachments,
-  }) async {
-    // Attempt deterministic local handling first (Phase 5)
-    final local = await _tryLocal(userMessage, history: history);
-    if (local != null) return local;
-
+  }) {
     if (isDemo) {
       _lastProvenance = null;
       return demo.reply(userMessage, history: history);
@@ -132,11 +125,7 @@ class RoutedChatService implements AttachmentCapableChatService, ReplyProvenance
     String userMessage, {
     List<ChatMessage> history = const <ChatMessage>[],
     String? memoryContext,
-  }) async {
-    // Attempt deterministic local handling first (Phase 5)
-    final local = await _tryLocal(userMessage, history: history);
-    if (local != null) return local;
-
+  }) {
     if (isDemo) {
       _lastProvenance = null;
       return demo.reply(userMessage, history: history);
@@ -145,95 +134,6 @@ class RoutedChatService implements AttachmentCapableChatService, ReplyProvenance
       buildChatPayload(userMessage, history),
       memoryContext: memoryContext,
     );
-  }
-
-  /// Try to run the local AI tools. Returns a non-null string when a local tool
-  /// produced a deterministic result; otherwise returns null to indicate the
-  /// request should proceed to demo/backend handling.
-  Future<String?> _tryLocal(String userMessage, {List<ChatMessage> history = const <ChatMessage>[]}) async {
-    if (localAI == null) return null;
-
-    try {
-      final ToolResult<dynamic> r = await localAI!.run(userMessage);
-      // Format common outputs for chat display.
-      final out = r.result;
-      final String text = _formatLocalResult(out);
-
-      // Set provenance so UI can label the reply as local
-      _lastProvenance = ReplyProvenance(
-        providerId: 'local',
-        providerName: 'LOCAL',
-        model: null,
-        fallbackUsed: false,
-        failedProviders: const <String>[],
-        omitted: const <String>[],
-      );
-
-      return '$text\n\n(Locally calculated)';
-    } on ToolError catch (e) {
-      // If the router determined the intent was ambiguous or the tool refused,
-      // do not fail the whole chat; fall back to AI/backend.
-      return null;
-    } catch (e) {
-      // Unexpected local tool failure — prefer to continue with backend rather
-      // than surfacing a tool stack trace to the user.
-      return null;
-    }
-  }
-
-  String _formatLocalResult(dynamic out) {
-    if (out == null) return '';
-    try {
-      if (out is CalculatorOutput) return out.formatted;
-      if (out is UnitConversionOutput) return '${out.value} ${out.to}';
-      if (out is TextToolsOutput) {
-        final buf = StringBuffer();
-        buf.writeln('Words: ${out.words}');
-        buf.writeln('Characters: ${out.characters}');
-        buf.writeln('Lines: ${out.lines}');
-        if (out.transformed != null) buf.writeln('\nTransformed:\n${out.transformed}');
-        return buf.toString().trim();
-      }
-      if (out is StatisticsOutput) {
-        final buf = StringBuffer();
-        buf.writeln('Mean: ${out.mean}');
-        buf.writeln('Median: ${out.median}');
-        buf.writeln('Mode: ${out.mode}');
-        buf.writeln('Range: ${out.range}');
-        buf.writeln('StdDev: ${out.stddev}');
-        return buf.toString().trim();
-      }
-      if (out is DocumentUtilsOutput) {
-        final buf = StringBuffer();
-        buf.writeln('File: ${out.metadata['path']}');
-        buf.writeln('Size: ${out.metadata['size']} bytes');
-        if (out.rows != null) buf.writeln('Rows: ${out.rows}');
-        if (out.columns != null) buf.writeln('Columns: ${out.columns}');
-        if (out.text != null) buf.writeln('\nPreview:\n${out.text!.substring(0, out.text!.length.clamp(0, 400))}');
-        return buf.toString().trim();
-      }
-      if (out is LocalHistoryOutput) {
-        final buf = StringBuffer();
-        buf.writeln('Conversations: ${out.conversations.length}');
-        for (final c in out.conversations.take(5)) {
-          buf.writeln('- ${c['title']} (id=${c['id']})');
-        }
-        return buf.toString().trim();
-      }
-      if (out is MemoryToolsOutput) {
-        final buf = StringBuffer();
-        buf.writeln('Memories found: ${out.memories.length}');
-        for (final m in out.memories.take(5)) {
-          buf.writeln('- [${m['status']}] ${m['category']}: ${m['text']}');
-        }
-        return buf.toString().trim();
-      }
-
-      // Fallback: stringify
-      return out.toString();
-    } catch (e) {
-      return out.toString();
-    }
   }
 
   Future<String> _liveReply(

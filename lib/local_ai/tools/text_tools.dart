@@ -32,7 +32,7 @@ class TextTools extends Tool<TextToolsInput, TextToolsOutput> {
   @override
   Future<ToolResult<TextToolsOutput>> execute(TextToolsInput input) async {
     final text = input.text;
-    final words = text.trim().isEmpty ? 0 : RegExp(r"\\w+").allMatches(text).length;
+    final words = text.trim().isEmpty ? 0 : RegExp(r"\w+").allMatches(text).length;
     final characters = text.length;
     final lines = text.split(RegExp(r"\r?\n")).length;
     String? transformed;
