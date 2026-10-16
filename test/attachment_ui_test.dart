@@ -14,7 +14,10 @@ import 'voice_fakes.dart';
 void _phone(WidgetTester tester) {
   tester.view.physicalSize = const Size(1080, 4000);
   tester.view.devicePixelRatio = 2.0;
+  tester.platformDispatcher.accessibilityFeaturesTestValue =
+      const FakeAccessibilityFeatures(disableAnimations: true);
   addTearDown(tester.view.reset);
+  addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
 }
 
 Future<void> _boot(
