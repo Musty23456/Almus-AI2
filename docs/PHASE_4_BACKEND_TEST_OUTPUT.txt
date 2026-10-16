@@ -1,0 +1,640 @@
+TAP version 13
+# Subtest: classifyOpenAIError maps every important status
+ok 1 - classifyOpenAIError maps every important status
+  ---
+  duration_ms: 36.652555
+  type: 'test'
+  ...
+# Subtest: Groq adapter: request shape, parsing, and the key stays in the header only
+ok 2 - Groq adapter: request shape, parsing, and the key stays in the header only
+  ---
+  duration_ms: 4.682717
+  type: 'test'
+  ...
+# Subtest: Groq adapter: filters non-chat models from the live list and never hardcodes a model
+ok 3 - Groq adapter: filters non-chat models from the live list and never hardcodes a model
+  ---
+  duration_ms: 1.922138
+  type: 'test'
+  ...
+# Subtest: OpenRouter adapter: data_collection=deny is sent; free-only filter hides paid models
+ok 4 - OpenRouter adapter: data_collection=deny is sent; free-only filter hides paid models
+  ---
+  duration_ms: 2.230621
+  type: 'test'
+  ...
+# Subtest: OpenRouter key check reads remaining free requests
+ok 5 - OpenRouter key check reads remaining free requests
+  ---
+  duration_ms: 0.778898
+  type: 'test'
+  ...
+# Subtest: response parsing: array content, <think> blocks, empty and filtered answers
+ok 6 - response parsing: array content, <think> blocks, empty and filtered answers
+  ---
+  duration_ms: 3.74291
+  type: 'test'
+  ...
+# Subtest: transport failures: timeout, network error, cancellation; messages never contain the key
+ok 7 - transport failures: timeout, network error, cancellation; messages never contain the key
+  ---
+  duration_ms: 21.609197
+  type: 'test'
+  ...
+# Subtest: generic compat provider: needs address and key; plain http only for localhost
+ok 8 - generic compat provider: needs address and key; plain http only for localhost
+  ---
+  duration_ms: 0.497194
+  type: 'test'
+  ...
+# Subtest: Gemini adapter: errors map to categories; per-day quota is recognised and not retryable
+ok 9 - Gemini adapter: errors map to categories; per-day quota is recognised and not retryable
+  ---
+  duration_ms: 3.140248
+  type: 'test'
+  ...
+# Subtest: Gemini adapter: billing declared by the operator drives costPolicy
+ok 10 - Gemini adapter: billing declared by the operator drives costPolicy
+  ---
+  duration_ms: 0.591335
+  type: 'test'
+  ...
+# Subtest: assertProvider rejects an incomplete adapter with a precise message
+ok 11 - assertProvider rejects an incomplete adapter with a precise message
+  ---
+  duration_ms: 0.640788
+  type: 'test'
+  ...
+# Subtest: backoff: full jitter stays within the cap and never undercuts Retry-After
+ok 12 - backoff: full jitter stays within the cap and never undercuts Retry-After
+  ---
+  duration_ms: 0.224356
+  type: 'test'
+  ...
+# Subtest: health tracker: rate limit cool-down, quota cool-down, sticky auth failure, success clears
+ok 13 - health tracker: rate limit cool-down, quota cool-down, sticky auth failure, success clears
+  ---
+  duration_ms: 0.765956
+  type: 'test'
+  ...
+# Subtest: redactor masks configured secrets and key-shaped strings
+ok 14 - redactor masks configured secrets and key-shaped strings
+  ---
+  duration_ms: 0.644129
+  type: 'test'
+  ...
+# Subtest: normalizeModel treats missing or unparsable prices as "not known to be free"
+ok 15 - normalizeModel treats missing or unparsable prices as "not known to be free"
+  ---
+  duration_ms: 0.151346
+  type: 'test'
+  ...
+# Subtest: successful request goes to the primary provider only
+ok 16 - successful request goes to the primary provider only
+  ---
+  duration_ms: 4.999525
+  type: 'test'
+  ...
+# Subtest: rate limit: waits at least Retry-After (with jitter floor), retries once, then succeeds
+ok 17 - rate limit: waits at least Retry-After (with jitter floor), retries once, then succeeds
+  ---
+  duration_ms: 1.943239
+  type: 'test'
+  ...
+# Subtest: rate limit with a very long Retry-After is not waited for
+ok 18 - rate limit with a very long Retry-After is not waited for
+  ---
+  duration_ms: 0.941483
+  type: 'test'
+  ...
+# Subtest: quota exhaustion is never retried on the same provider
+ok 19 - quota exhaustion is never retried on the same provider
+  ---
+  duration_ms: 0.545519
+  type: 'test'
+  ...
+# Subtest: timeout is retried only when the provider is free-only (a retry could be billed twice otherwise)
+ok 20 - timeout is retried only when the provider is free-only (a retry could be billed twice otherwise)
+  ---
+  duration_ms: 1.139527
+  type: 'test'
+  ...
+# Subtest: 503 (rejected before processing) is retried even on a metered provider; 500 is not
+ok 21 - 503 (rejected before processing) is retried even on a metered provider; 500 is not
+  ---
+  duration_ms: 0.848768
+  type: 'test'
+  ...
+# Subtest: invalid credentials: no retry, provider becomes misconfigured, later requests do not hit it
+ok 22 - invalid credentials: no retry, provider becomes misconfigured, later requests do not hit it
+  ---
+  duration_ms: 1.269342
+  type: 'test'
+  ...
+# Subtest: fallback when the user allowed it: primary fails, allowed provider answers, route says so
+ok 23 - fallback when the user allowed it: primary fails, allowed provider answers, route says so
+  ---
+  duration_ms: 1.200037
+  type: 'test'
+  ...
+# Subtest: disabled fallback: nothing is sent to another provider and the error suggests enabling it
+ok 24 - disabled fallback: nothing is sent to another provider and the error suggests enabling it
+  ---
+  duration_ms: 0.8614
+  type: 'test'
+  ...
+# Subtest: fallback only reaches providers the user named; others never see the message
+ok 25 - fallback only reaches providers the user named; others never see the message
+  ---
+  duration_ms: 0.754344
+  type: 'test'
+  ...
+# Subtest: operator can exclude a provider from fallback entirely
+ok 26 - operator can exclude a provider from fallback entirely
+  ---
+  duration_ms: 0.47733
+  type: 'test'
+  ...
+# Subtest: memory notes are withheld from a fallback provider unless the user allowed it, and the response says so
+ok 27 - memory notes are withheld from a fallback provider unless the user allowed it, and the response says so
+  ---
+  duration_ms: 1.435597
+  type: 'test'
+  ...
+# Subtest: attached file text is never sent to a fallback provider without consent (the fallback is skipped instead)
+ok 28 - attached file text is never sent to a fallback provider without consent (the fallback is skipped instead)
+  ---
+  duration_ms: 1.171019
+  type: 'test'
+  ...
+# Subtest: a metered fallback provider is refused unless the operator allows paid fallback
+ok 29 - a metered fallback provider is refused unless the operator allows paid fallback
+  ---
+  duration_ms: 0.699635
+  type: 'test'
+  ...
+# Subtest: content blocked by a provider is not sent to another provider
+ok 30 - content blocked by a provider is not sent to another provider
+  ---
+  duration_ms: 0.293999
+  type: 'test'
+  ...
+# Subtest: unsupported capability: a provider without image support is skipped, a capable one is used
+ok 31 - unsupported capability: a provider without image support is skipped, a capable one is used
+  ---
+  duration_ms: 0.387929
+  type: 'test'
+  ...
+# Subtest: context limits: a provider too small for the request is skipped without being contacted
+ok 32 - context limits: a provider too small for the request is skipped without being contacted
+  ---
+  duration_ms: 0.281805
+  type: 'test'
+  ...
+# Subtest: all providers failing gives one clear, sanitized error naming each provider
+ok 33 - all providers failing gives one clear, sanitized error naming each provider
+  ---
+  duration_ms: 0.430592
+  type: 'test'
+  ...
+# Subtest: retries are bounded: attempts per provider and in total
+ok 34 - retries are bounded: attempts per provider and in total
+  ---
+  duration_ms: 0.3616
+  type: 'test'
+  ...
+# Subtest: outage and recovery: breaker opens, provider is skipped, then recovers after the cool-down
+ok 35 - outage and recovery: breaker opens, provider is skipped, then recovers after the cool-down
+  ---
+  duration_ms: 0.810723
+  type: 'test'
+  ...
+# Subtest: fallback keeps working while the primary is cooling down, and skips it without a call
+ok 36 - fallback keeps working while the primary is cooling down, and skips it without a call
+  ---
+  duration_ms: 0.347349
+  type: 'test'
+  ...
+# Subtest: cancellation stops the work and is not treated as a provider failure
+ok 37 - cancellation stops the work and is not treated as a provider failure
+  ---
+  duration_ms: 0.45225
+  type: 'test'
+  ...
+# Subtest: a user-chosen model must exist in the provider live list
+ok 38 - a user-chosen model must exist in the provider live list
+  ---
+  duration_ms: 0.477182
+  type: 'test'
+  ...
+# Subtest: a paid model cannot be selected on a provider that enforces free-only use
+ok 39 - a paid model cannot be selected on a provider that enforces free-only use
+  ---
+  duration_ms: 0.212423
+  type: 'test'
+  ...
+# Subtest: own requests-per-minute budget stops calls before the provider would reject them
+ok 40 - own requests-per-minute budget stops calls before the provider would reject them
+  ---
+  duration_ms: 0.447042
+  type: 'test'
+  ...
+# Subtest: error output never contains upstream text or message content
+ok 41 - error output never contains upstream text or message content
+  ---
+  duration_ms: 0.320286
+  type: 'test'
+  ...
+# Subtest: health checks: unknown until checked, healthy after a real check, misconfigured after a failed one
+ok 42 - health checks: unknown until checked, healthy after a real check, misconfigured after a failed one
+  ---
+  duration_ms: 1.036853
+  type: 'test'
+  ...
+# Subtest: success: parses reply and usage, sends key in a header only
+ok 43 - success: parses reply and usage, sends key in a header only
+  ---
+  duration_ms: 40.002821
+  type: 'test'
+  ...
+# Subtest: 429 maps to quota_or_rate_limit with retry-after
+ok 44 - 429 maps to quota_or_rate_limit with retry-after
+  ---
+  duration_ms: 1.211325
+  type: 'test'
+  ...
+# Subtest: 429 reads retryDelay from the error details
+ok 45 - 429 reads retryDelay from the error details
+  ---
+  duration_ms: 0.727422
+  type: 'test'
+  ...
+# Subtest: 403 and key errors map to upstream_auth without leaking the key
+ok 46 - 403 and key errors map to upstream_auth without leaking the key
+  ---
+  duration_ms: 1.153361
+  type: 'test'
+  ...
+# Subtest: 404 maps to model_not_found, 5xx to upstream_unavailable
+ok 47 - 404 maps to model_not_found, 5xx to upstream_unavailable
+  ---
+  duration_ms: 0.964212
+  type: 'test'
+  ...
+# Subtest: network failure maps to upstream_unreachable
+ok 48 - network failure maps to upstream_unreachable
+  ---
+  duration_ms: 0.329633
+  type: 'test'
+  ...
+# Subtest: timeout maps to upstream_timeout (504)
+ok 49 - timeout maps to upstream_timeout (504)
+  ---
+  duration_ms: 31.455818
+  type: 'test'
+  ...
+# Subtest: invalid or empty upstream responses are reported clearly
+ok 50 - invalid or empty upstream responses are reported clearly
+  ---
+  duration_ms: 2.440399
+  type: 'test'
+  ...
+# Subtest: blocked prompts return 422
+ok 51 - blocked prompts return 422
+  ---
+  duration_ms: 1.124397
+  type: 'test'
+  ...
+# Subtest: fallback model is used when the primary is rate limited
+ok 52 - fallback model is used when the primary is rate limited
+  ---
+  duration_ms: 1.021019
+  type: 'test'
+  ...
+# Subtest: listModels returns only generateContent models
+ok 53 - listModels returns only generateContent models
+  ---
+  duration_ms: 1.32581
+  type: 'test'
+  ...
+# Subtest: memory notes are added to the system instruction only when provided
+ok 54 - memory notes are added to the system instruction only when provided
+  ---
+  duration_ms: 0.754763
+  type: 'test'
+  ...
+# Subtest: default request (no routing): Gemini answers, response names the provider, no other provider is contacted
+ok 55 - default request (no routing): Gemini answers, response names the provider, no other provider is contacted
+  ---
+  duration_ms: 41.884954
+  type: 'test'
+  ...
+# Subtest: Gemini quota exhausted + fallback OFF: clear error, Groq never receives the message
+ok 56 - Gemini quota exhausted + fallback OFF: clear error, Groq never receives the message
+  ---
+  duration_ms: 12.10649
+  type: 'test'
+  ...
+# Subtest: Gemini quota exhausted + user allowed Groq: Groq answers and the route reports the fallback
+ok 57 - Gemini quota exhausted + user allowed Groq: Groq answers and the route reports the fallback
+  ---
+  duration_ms: 11.780766
+  type: 'test'
+  ...
+# Subtest: a fallback whose cost is not declared free is refused even with user consent (no surprise bills)
+ok 58 - a fallback whose cost is not declared free is refused even with user consent (no surprise bills)
+  ---
+  duration_ms: 14.792532
+  type: 'test'
+  ...
+# Subtest: user can choose Groq as the main provider
+ok 59 - user can choose Groq as the main provider
+  ---
+  duration_ms: 10.676628
+  type: 'test'
+  ...
+# Subtest: Groq-only backend works (no Gemini key at all)
+ok 60 - Groq-only backend works (no Gemini key at all)
+  ---
+  duration_ms: 22.114388
+  type: 'test'
+  ...
+# Subtest: routing validation: unknown fields, unknown providers and bad types are refused
+ok 61 - routing validation: unknown fields, unknown providers and bad types are refused
+  ---
+  duration_ms: 75.358393
+  type: 'test'
+  ...
+# Subtest: GET /v1/providers needs the token, lists providers, and verifies nothing by itself
+ok 62 - GET /v1/providers needs the token, lists providers, and verifies nothing by itself
+  ---
+  duration_ms: 29.3436
+  type: 'test'
+  ...
+# Subtest: POST /v1/providers/check performs real checks and reports honest states
+ok 63 - POST /v1/providers/check performs real checks and reports honest states
+  ---
+  duration_ms: 22.592109
+  type: 'test'
+  ...
+# Subtest: GET /v1/providers/:id/models lists only usable models from the live API
+ok 64 - GET /v1/providers/:id/models lists only usable models from the live API
+  ---
+  duration_ms: 30.43713
+  type: 'test'
+  ...
+# Subtest: health checks are rate limited separately and tightly
+ok 65 - health checks are rate limited separately and tightly
+  ---
+  duration_ms: 7.263951
+  type: 'test'
+  ...
+# Subtest: recovery after an outage over HTTP: failures, breaker, then success
+ok 66 - recovery after an outage over HTTP: failures, breaker, then success
+  ---
+  duration_ms: 172.545943
+  type: 'test'
+  ...
+# Subtest: client disconnect cancels the upstream call
+ok 67 - client disconnect cancels the upstream call
+  ---
+  duration_ms: 106.074153
+  type: 'test'
+  ...
+# Subtest: secrets never appear in responses or logs, even when upstream echoes them
+ok 68 - secrets never appear in responses or logs, even when upstream echoes them
+  ---
+  duration_ms: 15.710664
+  type: 'test'
+  ...
+# Subtest: configuration validation
+ok 69 - configuration validation
+  ---
+  duration_ms: 0.930744
+  type: 'test'
+  ...
+# Subtest: GET /health works without a token and hides secrets
+ok 70 - GET /health works without a token and hides secrets
+  ---
+  duration_ms: 34.655366
+  type: 'test'
+  ...
+# Subtest: POST /v1/chat returns a reply
+ok 71 - POST /v1/chat returns a reply
+  ---
+  duration_ms: 18.899546
+  type: 'test'
+  ...
+# Subtest: requires a valid access token
+ok 72 - requires a valid access token
+  ---
+  duration_ms: 14.894277
+  type: 'test'
+  ...
+# Subtest: reports server_not_configured when secrets are missing
+ok 73 - reports server_not_configured when secrets are missing
+  ---
+  duration_ms: 20.833643
+  type: 'test'
+  ...
+# Subtest: validation errors return 400 with helpful messages
+ok 74 - validation errors return 400 with helpful messages
+  ---
+  duration_ms: 24.371113
+  type: 'test'
+  ...
+# Subtest: rejects other content types (415) and oversized bodies (413)
+ok 75 - rejects other content types (415) and oversized bodies (413)
+  ---
+  duration_ms: 16.349849
+  type: 'test'
+  ...
+# Subtest: unknown routes and wrong methods
+ok 76 - unknown routes and wrong methods
+  ---
+  duration_ms: 11.27818
+  type: 'test'
+  ...
+# Subtest: per-client rate limit returns 429 with Retry-After
+ok 77 - per-client rate limit returns 429 with Retry-After
+  ---
+  duration_ms: 24.867805
+  type: 'test'
+  ...
+# Subtest: daily request limit protects the free quota
+ok 78 - daily request limit protects the free quota
+  ---
+  duration_ms: 18.977263
+  type: 'test'
+  ...
+# Subtest: upstream failures are translated without leaking secrets or logging them
+ok 79 - upstream failures are translated without leaking secrets or logging them
+  ---
+  duration_ms: 7.601167
+  type: 'test'
+  ...
+# Subtest: unexpected exceptions return a generic 500
+ok 80 - unexpected exceptions return a generic 500
+  ---
+  duration_ms: 4.184572
+  type: 'test'
+  ...
+# Subtest: GET /v1/models requires the token and lists models
+ok 81 - GET /v1/models requires the token and lists models
+  ---
+  duration_ms: 21.734116
+  type: 'test'
+  ...
+# Subtest: memoryContext reaches Gemini as a system instruction and is never logged
+ok 82 - memoryContext reaches Gemini as a system instruction and is never logged
+  ---
+  duration_ms: 9.01736
+  type: 'test'
+  ...
+# Subtest: requests without memoryContext still work and bad memoryContext is rejected
+ok 83 - requests without memoryContext still work and bad memoryContext is rejected
+  ---
+  duration_ms: 7.783889
+  type: 'test'
+  ...
+# Subtest: attachments reach Gemini inside the user turn with a safety note, and are not logged
+ok 84 - attachments reach Gemini inside the user turn with a safety note, and are not logged
+  ---
+  duration_ms: 11.749964
+  type: 'test'
+  ...
+# Subtest: requests without attachments get no attachment note; images and paths are refused
+ok 85 - requests without attachments get no attachment note; images and paths are refused
+  ---
+  duration_ms: 6.859532
+  type: 'test'
+  ...
+# Subtest: a body with 60,000 characters of attachment text fits the default body limit
+ok 86 - a body with 60,000 characters of attachment text fits the default body limit
+  ---
+  duration_ms: 6.457617
+  type: 'test'
+  ...
+# Subtest: testkit.test.js
+ok 6 - testkit.test.js
+  ---
+  duration_ms: 38.374218
+  type: 'test'
+  ...
+# Subtest: accepts a valid conversation and trims whitespace
+ok 88 - accepts a valid conversation and trims whitespace
+  ---
+  duration_ms: 1.284455
+  type: 'test'
+  ...
+# Subtest: rejects non-object bodies
+ok 89 - rejects non-object bodies
+  ---
+  duration_ms: 0.580604
+  type: 'test'
+  ...
+# Subtest: rejects missing or empty messages
+ok 90 - rejects missing or empty messages
+  ---
+  duration_ms: 0.165097
+  type: 'test'
+  ...
+# Subtest: rejects too many messages
+ok 91 - rejects too many messages
+  ---
+  duration_ms: 0.192411
+  type: 'test'
+  ...
+# Subtest: rejects bad roles, non-string and empty content
+ok 92 - rejects bad roles, non-string and empty content
+  ---
+  duration_ms: 0.345591
+  type: 'test'
+  ...
+# Subtest: last message must come from the user
+ok 93 - last message must come from the user
+  ---
+  duration_ms: 0.178554
+  type: 'test'
+  ...
+# Subtest: long user messages are rejected, long assistant messages are shortened
+ok 94 - long user messages are rejected, long assistant messages are shortened
+  ---
+  duration_ms: 0.178735
+  type: 'test'
+  ...
+# Subtest: buildContents keeps the newest messages within the character budget
+ok 95 - buildContents keeps the newest messages within the character budget
+  ---
+  duration_ms: 0.283766
+  type: 'test'
+  ...
+# Subtest: buildContents always keeps the last message even if it is over budget
+ok 96 - buildContents always keeps the last message even if it is over budget
+  ---
+  duration_ms: 0.282956
+  type: 'test'
+  ...
+# Subtest: buildContents merges consecutive same-role messages and maps assistant to model
+ok 97 - buildContents merges consecutive same-role messages and maps assistant to model
+  ---
+  duration_ms: 0.939512
+  type: 'test'
+  ...
+# Subtest: memoryContext is optional, trimmed and cleaned
+ok 98 - memoryContext is optional, trimmed and cleaned
+  ---
+  duration_ms: 0.273764
+  type: 'test'
+  ...
+# Subtest: memoryContext must be a string within the size limit
+ok 99 - memoryContext must be a string within the size limit
+  ---
+  duration_ms: 0.257404
+  type: 'test'
+  ...
+# Subtest: attachments are optional
+ok 100 - attachments are optional
+  ---
+  duration_ms: 0.197689
+  type: 'test'
+  ...
+# Subtest: accepts extracted text and cleans the name
+ok 101 - accepts extracted text and cleans the name
+  ---
+  duration_ms: 0.363577
+  type: 'test'
+  ...
+# Subtest: rejects device paths, uris and any unknown field
+ok 102 - rejects device paths, uris and any unknown field
+  ---
+  duration_ms: 0.19921
+  type: 'test'
+  ...
+# Subtest: rejects images, unknown kinds, empty and non-string text
+ok 103 - rejects images, unknown kinds, empty and non-string text
+  ---
+  duration_ms: 1.534814
+  type: 'test'
+  ...
+# Subtest: enforces count, per-file and total limits
+ok 104 - enforces count, per-file and total limits
+  ---
+  duration_ms: 0.550493
+  type: 'test'
+  ...
+# Subtest: appendAttachments delimits file text and defuses fake markers
+ok 105 - appendAttachments delimits file text and defuses fake markers
+  ---
+  duration_ms: 0.391737
+  type: 'test'
+  ...
+1..105
+# tests 105
+# suites 0
+# pass 105
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1650.902678

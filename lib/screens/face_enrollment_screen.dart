@@ -58,6 +58,9 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
       _busy = true;
       _status = 'Opening camera…';
     });
+    // The camera app leaves the photo in the app cache. It is always deleted
+    // in the finally block below, whether or not enrollment succeeded.
+    File? captureFile;
     try {
       final XFile? capture = await _picker.pickImage(
         source: ImageSource.camera,
@@ -69,6 +72,7 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
         return;
       }
 
+      captureFile = File(capture.path);
       _setStatus('Checking image for a face on this device…');
       final faces = await _detector.processImage(
         InputImage.fromFilePath(capture.path),
@@ -94,7 +98,18 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
     } catch (_) {
       _setStatus('Could not process the photo. Check camera availability and try again.');
     } finally {
+      await _discardCapture(captureFile);
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Best-effort removal of the temporary camera capture (a face photo).
+  Future<void> _discardCapture(File? file) async {
+    if (file == null) return;
+    try {
+      if (await file.exists()) await file.delete();
+    } catch (_) {
+      // Nothing more can be done; Android clears the cache when it needs space.
     }
   }
 

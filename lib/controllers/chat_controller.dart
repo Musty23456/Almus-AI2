@@ -3,6 +3,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 
+import '../attachments/attachment_models.dart';
+import '../attachments/attachment_plan.dart';
 import '../data/conversation_repository.dart';
 import '../data/memory_conversation_repository.dart';
 import '../data/storage_exception.dart';
@@ -78,6 +80,10 @@ class ChatController extends ChangeNotifier implements VoiceAvatarHooks {
   String? _storageError;
   bool _chatMemoryOff = false;
   List<MemoryItem> _lastMemoryUsed = const <MemoryItem>[];
+  String? _routeNotice;
+
+  /// Phase 4: set when a reply came from a fallback provider, so the person is told instead of left guessing.
+  String? get routeNotice => _routeNotice;
 
   List<ChatMessage> get messages => List<ChatMessage>.unmodifiable(_messages);
   @override
@@ -189,36 +195,87 @@ class ChatController extends ChangeNotifier implements VoiceAvatarHooks {
     _scheduleIdle(const Duration(seconds: 3));
   }
 
-  Future<void> send(String raw) async {
-    final String text = raw.trim();
-    if (_disposed || text.isEmpty || _busy) return;
+  /// What the current engine can read from attached files.
+  AttachmentSupport get attachmentSupport {
+    final ChatService s = service;
+    return s is AttachmentCapableChatService
+        ? s.attachmentSupport
+        : AttachmentSupport.none;
+  }
+
+  /// Short note shown while a message with files is on its way.
+  String? get busyNote => _busy ? _busyNote : null;
+  String? _busyNote;
+
+  /// Sends [raw] with optional [attachments] (files already read on the
+  /// phone). Only the text of files the engine supports is sent; the stored
+  /// message lists every file and says which ones were NOT analyzed.
+  Future<void> send(
+    String raw, {
+    List<ChatAttachment> attachments = const <ChatAttachment>[],
+  }) async {
+    String text = raw.trim();
+    if (_disposed || _busy) return;
+    if (text.isEmpty && attachments.isEmpty) return;
+    final AttachmentPlan plan = planAttachments(attachments, attachmentSupport);
+    final bool hasFiles = attachments.isNotEmpty;
+    // What the AI is asked (typed words only; file text travels separately).
+    final String typed = text.isEmpty
+        ? (plan.analyzable.isEmpty
+            ? 'I attached a file.'
+            : 'Please read the attached file${plan.analyzable.length == 1 ? '' : 's'}.')
+        : text;
+    text = typed;
 
     _idleTimer?.cancel();
     final int generation = _generation;
     final List<ChatMessage> history = List<ChatMessage>.of(_messages);
-    final ChatMessage userMessage = _newMessage(text, MessageSender.user);
+    final ChatMessage userMessage = _newMessage(
+      '$text${attachmentFooter(plan)}',
+      MessageSender.user,
+      attachments: attachmentInfos(plan),
+    );
     _messages.add(userMessage);
     _busy = true;
+    _busyNote = hasFiles
+        ? (plan.analyzable.isEmpty
+            ? null
+            : 'Sending ${plan.analyzable.length} attached file${plan.analyzable.length == 1 ? '' : 's'}…')
+        : null;
+    _routeNotice = null;
     robotState.value = RobotState.thinking;
     notifyListeners();
     _enqueueSave(userMessage);
-    _suggestMemories(text, userMessage.conversationId);
+    if (raw.trim().isNotEmpty) _suggestMemories(text, userMessage.conversationId);
 
     try {
       final MemoryContext context = await _memoryContextFor(text, history);
       if (_disposed || generation != _generation) return;
       _lastMemoryUsed =
           context.used.map((RetrievedMemory r) => r.item).toList();
-      final String reply = await service.reply(
-        text,
-        history: history,
-        memoryContext: context.text,
-      );
+      final ChatService engine = service;
+      final String reply = plan.analyzable.isNotEmpty &&
+              engine is AttachmentCapableChatService
+          ? await engine.replyWithAttachments(
+              text,
+              history: history,
+              memoryContext: context.text,
+              attachments: plan.analyzable,
+            )
+          : await engine.reply(
+              text,
+              history: history,
+              memoryContext: context.text,
+            );
       if (_disposed || generation != _generation) return;
+      // Phase 4: the label names the provider that really answered (default GEMINI as before).
+      final ReplyProvenance? provenance =
+          engine is ReplyProvenanceSource ? engine.lastProvenance : null;
+      _routeNotice = _noticeFor(provenance);
       final ChatMessage assistantMessage = _newMessage(
         reply,
         MessageSender.assistant,
-        engineLabel: service.isDemo ? 'DEMO' : 'GEMINI',
+        engineLabel: service.isDemo ? 'DEMO' : (provenance?.label ?? 'GEMINI'),
       );
       _messages.add(assistantMessage);
       _busy = false;
@@ -238,9 +295,25 @@ class ChatController extends ChangeNotifier implements VoiceAvatarHooks {
       }
     } on ChatServiceException catch (e) {
       _fail(generation, e.message);
-    } on Exception {
+    } catch (_) {
+      // Any other failure, including a Dart Error (StateError, TypeError...),
+      // must still clear the busy flag. Catching only Exception would leave
+      // the chat stuck on THINKING forever. The error text is not shown or
+      // logged because it could contain message content.
       _fail(generation, 'Something unexpected went wrong. Please try again.');
     }
+  }
+
+  /// Explains a fallback in plain words. Null when the usual provider answered.
+  String? _noticeFor(ReplyProvenance? p) {
+    if (p == null || !p.fallbackUsed) return null;
+    final String failed = p.failedProviders.isEmpty
+        ? 'the usual provider'
+        : p.failedProviders.join(', ');
+    final String memory = p.omitted.contains('memory')
+        ? ' Your memory notes were not shared with it.'
+        : '';
+    return 'Answered by ${p.providerName} because $failed could not answer.$memory';
   }
 
   /// Picks relevant memories for a live request. Nothing is retrieved in
@@ -377,8 +450,20 @@ class ChatController extends ChangeNotifier implements VoiceAvatarHooks {
     }
   }
 
+  /// Called after a backup was restored: stored data changed under the open
+  /// chat, so close it and reopen the newest saved conversation.
+  Future<void> reloadAfterRestore() async {
+    await _storageQueue;
+    if (_disposed) return;
+    _storedConversations.clear();
+    _resetState();
+    notifyListeners();
+    await restoreLatest();
+  }
+
   /// Starts an empty chat. The old conversation stays saved.
   void newConversation() {
+    _routeNotice = null;
     if (_disposed) return;
     _resetState();
     notifyListeners();
@@ -490,6 +575,7 @@ class ChatController extends ChangeNotifier implements VoiceAvatarHooks {
     MessageSender sender, {
     bool isError = false,
     String engineLabel = 'DEMO',
+    List<AttachmentInfo> attachments = const <AttachmentInfo>[],
   }) {
     if (_conversationId == null) {
       final String created = newId('c');
@@ -507,6 +593,7 @@ class ChatController extends ChangeNotifier implements VoiceAvatarHooks {
       timestamp: DateTime.now(),
       isError: isError,
       engineLabel: engineLabel,
+      attachments: attachments,
     );
   }
 

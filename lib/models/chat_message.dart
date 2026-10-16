@@ -1,3 +1,5 @@
+import '../attachments/attachment_models.dart';
+
 /// Who wrote a chat message.
 enum MessageSender { user, assistant }
 
@@ -16,6 +18,7 @@ class ChatMessage {
     this.isError = false,
     this.engineLabel = 'DEMO',
     this.conversationId = '',
+    this.attachments = const <AttachmentInfo>[],
   });
 
   final String id;
@@ -29,6 +32,10 @@ class ChatMessage {
 
   /// The conversation this message belongs to ('' until it is attached to one).
   final String conversationId;
+
+  /// Files attached to this message (kept for display while the app is open;
+  /// the stored text also lists them). File content is never kept.
+  final List<AttachmentInfo> attachments;
 
   /// 'user' or 'assistant' as stored in the database.
   String get role => sender == MessageSender.user ? 'user' : 'assistant';

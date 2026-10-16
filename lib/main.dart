@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import 'app.dart';
 import 'avatar/avatar_profile.dart';
+import 'attachments/attachment_picker.dart';
+import 'backup/backup_files.dart';
+import 'voice/voice_consent.dart';
 import 'data/repository_factory.dart';
 import 'security/app_lock_controller.dart';
 import 'security/biometric_service.dart';
@@ -28,6 +31,13 @@ Future<void> main() async {
       repository: result.repository,
       memoryRepository: result.memory,
       persistentHistory: result.persistent,
+      // Phase 2: backup / restore through the Android file picker.
+      backupStore: result.backupStore,
+      backupFiles: const FilePickerGateway(),
+      backupInfoStore: const PrefsBackupInfoStore(),
+      // Phase 3: attachments and the first-use microphone explanation.
+      attachmentPicker: SystemAttachmentPicker(),
+      voiceConsent: const PrefsVoiceConsentStore(),
       // Phase 6: Android speech engines. Nothing starts until the user taps
       // the microphone or a reply is read aloud.
       speechRecognizer: PlatformSpeechRecognizer(),

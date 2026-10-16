@@ -1,4 +1,5 @@
 import { ApiError } from './errors.js';
+import { buildSystemText } from './ai/messages.js';
 
 const FALLBACK_CODES = new Set(['quota_or_rate_limit', 'model_not_found', 'upstream_unavailable', 'upstream_timeout']);
 
@@ -15,6 +16,23 @@ function retryAfterFrom(res, parsed) {
   return undefined;
 }
 
+/**
+ * Gemini reports both per-minute and per-day limits as HTTP 429. A per-day quota will not recover within a retry
+ * window, so it must not be retried. Returns 'day' when the error details name a per-day quota.
+ */
+function quotaWindowFrom(parsed) {
+  const details = parsed?.error?.details;
+  if (Array.isArray(details)) {
+    for (const d of details) {
+      const violations = Array.isArray(d?.violations) ? d.violations : [];
+      for (const v of violations) {
+        if (/perday/i.test(String(v?.quotaId ?? ''))) return 'day';
+      }
+    }
+  }
+  return /per\s*day|daily/i.test(String(parsed?.error?.message ?? '')) ? 'day' : undefined;
+}
+
 function tryParse(text) {
   try {
     return JSON.parse(text);
@@ -28,25 +46,35 @@ function tryParse(text) {
  * and is never included in any error message or log line.
  */
 export function createGeminiClient({ config, fetchImpl = globalThis.fetch }) {
-  async function request(method, url, body) {
+  async function request(method, url, body, { signal, timeoutMs } = {}) {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), config.upstreamTimeoutMs);
+    const timer = setTimeout(() => controller.abort(), timeoutMs ?? config.upstreamTimeoutMs);
+    const onExternalAbort = () => controller.abort();
+    if (signal) {
+      if (signal.aborted) controller.abort();
+      else signal.addEventListener('abort', onExternalAbort, { once: true });
+    }
     try {
       const res = await fetchImpl(url, {
         method,
         headers: { 'content-type': 'application/json', 'x-goog-api-key': config.geminiApiKey },
         body: body === undefined ? undefined : JSON.stringify(body),
         signal: controller.signal,
+        redirect: 'error', // Phase 4: never follow a redirect with the API key attached
       });
       const text = await res.text();
       return { res, text };
     } catch (err) {
+      if (signal?.aborted) {
+        throw new ApiError(499, 'cancelled', 'The request was cancelled.');
+      }
       if (err?.name === 'AbortError') {
         throw new ApiError(504, 'upstream_timeout', 'Gemini took too long to respond. Please try again.');
       }
       throw new ApiError(502, 'upstream_unreachable', 'The backend could not reach the Gemini API. Please try again shortly.');
     } finally {
       clearTimeout(timer);
+      signal?.removeEventListener?.('abort', onExternalAbort);
     }
   }
 
@@ -58,8 +86,11 @@ export function createGeminiClient({ config, fetchImpl = globalThis.fetch }) {
         429,
         'quota_or_rate_limit',
         'Gemini rate limit or free-tier quota reached. Wait a little and try again. If it keeps happening, today\'s quota may be used up.',
-        { retryAfterSeconds: retryAfterFrom(res, parsed) },
+        { retryAfterSeconds: retryAfterFrom(res, parsed), details: { quotaWindow: quotaWindowFrom(parsed) } },
       );
+    }
+    if (status === 413) {
+      return new ApiError(502, 'context_too_large', 'Gemini says the request is too large.');
     }
     if (status === 401 || status === 403) {
       return new ApiError(502, 'upstream_auth', 'Gemini rejected the backend\'s API key or project. Check GEMINI_API_KEY and your Google AI Studio project.');
@@ -117,28 +148,30 @@ export function createGeminiClient({ config, fetchImpl = globalThis.fetch }) {
     };
   }
 
-  /** The system prompt, plus the user's memory notes when the app sent any. */
-  function systemText(memoryContext) {
-    return memoryContext ? `${config.systemPrompt}\n\n${memoryContext}` : config.systemPrompt;
+  function systemText(memoryContext, hasAttachments) {
+    return buildSystemText({ systemPrompt: config.systemPrompt, memoryContext, hasAttachments });
   }
 
-  async function generateWith(model, contents, memoryContext) {
+  async function generateWith(model, contents, memoryContext, hasAttachments, opts = {}) {
     const url = `${config.geminiBaseUrl}/models/${encodeURIComponent(model)}:generateContent`;
     const body = {
-      systemInstruction: { parts: [{ text: systemText(memoryContext) }] },
+      systemInstruction: { parts: [{ text: systemText(memoryContext, hasAttachments) }] },
       contents,
       generationConfig: { maxOutputTokens: config.maxOutputTokens, temperature: config.temperature },
     };
-    const { res, text } = await request('POST', url, body);
+    const { res, text } = await request('POST', url, body, opts);
     if (!res.ok) throw errorFor(res, text);
     return parseSuccess(text, model);
   }
 
   return {
     /** Tries the primary model, then the optional fallback model for quota/availability problems. */
-    async generate(contents, { memoryContext = null } = {}) {
+    async generate(contents, { memoryContext = null, hasAttachments = false, model = null, signal, timeoutMs } = {}) {
+      const opts = { signal, timeoutMs };
+      // Phase 4: an explicit model (chosen by the user) is used as-is, with no hidden second model.
+      if (model) return generateWith(model, contents, memoryContext, hasAttachments, opts);
       try {
-        return await generateWith(config.geminiModel, contents, memoryContext);
+        return await generateWith(config.geminiModel, contents, memoryContext, hasAttachments, opts);
       } catch (err) {
         const canFallback =
           err instanceof ApiError &&
@@ -146,7 +179,7 @@ export function createGeminiClient({ config, fetchImpl = globalThis.fetch }) {
           config.geminiFallbackModel &&
           config.geminiFallbackModel !== config.geminiModel;
         if (!canFallback) throw err;
-        return generateWith(config.geminiFallbackModel, contents, memoryContext);
+        return generateWith(config.geminiFallbackModel, contents, memoryContext, hasAttachments, opts);
       }
     },
 
@@ -163,6 +196,26 @@ export function createGeminiClient({ config, fetchImpl = globalThis.fetch }) {
         .map((m) => String(m.name ?? '').replace(/^models\//, ''))
         .filter(Boolean)
         .sort();
+    },
+
+    /** Like listModels() but with context sizes, for capability-aware routing (Phase 4). */
+    async listModelsDetailed({ signal } = {}) {
+      const { res, text } = await request('GET', `${config.geminiBaseUrl}/models?pageSize=200`, undefined, { signal });
+      if (!res.ok) throw errorFor(res, text);
+      const json = tryParse(text);
+      if (!json || !Array.isArray(json.models)) {
+        throw new ApiError(502, 'invalid_upstream_response', 'Gemini returned a model list the backend could not understand.');
+      }
+      return json.models
+        .filter((m) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+        .map((m) => ({
+          id: String(m.name ?? '').replace(/^models\//, ''),
+          name: typeof m.displayName === 'string' ? m.displayName : null,
+          contextTokens: Number.isFinite(m.inputTokenLimit) ? m.inputTokenLimit : null,
+          maxOutputTokens: Number.isFinite(m.outputTokenLimit) ? m.outputTokenLimit : null,
+        }))
+        .filter((m) => m.id)
+        .sort((a, b) => a.id.localeCompare(b.id));
     },
   };
 }

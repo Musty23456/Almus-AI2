@@ -3,6 +3,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY package.json ./
 COPY *.js ./
+COPY ai ./ai
 RUN rm -f *.test.js
 USER node
 EXPOSE 8080

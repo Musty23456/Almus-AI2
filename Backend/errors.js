@@ -9,6 +9,8 @@ export class ApiError extends Error {
     this.status = status;
     this.code = code;
     this.retryAfterSeconds = extra.retryAfterSeconds;
+    /** Optional machine-readable, secret-free hints for clients (Phase 4). */
+    this.details = extra.details;
   }
 }
 

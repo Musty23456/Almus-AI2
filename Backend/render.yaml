@@ -10,6 +10,17 @@ services:
     envVars:
       - key: GEMINI_API_KEY
         sync: false
+      # Optional extra providers (see docs/PROVIDERS.md). Leave unset to stay Gemini-only.
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        sync: false
+      - key: GROQ_COST_POLICY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENROUTER_MODEL
+        sync: false
       - key: APP_ACCESS_TOKEN
         sync: false
       - key: GEMINI_MODEL

@@ -1,3 +1,5 @@
+import '../backup/backup_store.dart';
+import '../backup/sqlite_backup_store.dart';
 import 'app_database.dart';
 import 'conversation_repository.dart';
 import 'memory_conversation_repository.dart';
@@ -12,6 +14,7 @@ class RepositoryOpenResult {
     this.repository, {
     required this.persistent,
     required this.memory,
+    this.backupStore,
   });
 
   final ConversationRepository repository;
@@ -19,6 +22,10 @@ class RepositoryOpenResult {
 
   /// Personal memories (Phase 4). Lives in the same database file.
   final MemoryRepository memory;
+
+  /// Phase 2: backup / restore of the stored data. Null when the database
+  /// could not be opened (there is nothing persistent to back up then).
+  final BackupStore? backupStore;
 }
 
 /// Opens the SQLite database. If that fails for any reason, the app keeps
@@ -30,6 +37,7 @@ Future<RepositoryOpenResult> openDefaultRepository() async {
       SqliteConversationRepository(database),
       persistent: true,
       memory: SqliteMemoryRepository(database),
+      backupStore: SqliteBackupStore(database),
     );
   } on Exception {
     return RepositoryOpenResult(

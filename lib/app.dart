@@ -2,7 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'ai/provider_status_controller.dart';
+import 'ai/routing_preferences.dart';
+import 'attachments/attachment_picker.dart';
+import 'backup/backup_files.dart';
+import 'backup/backup_store.dart';
 import 'controllers/settings_controller.dart';
+import 'voice/voice_consent.dart';
 import 'data/conversation_repository.dart';
 import 'data/memory_conversation_repository.dart';
 import 'data/memory_repository.dart';
@@ -36,7 +42,26 @@ class AlmusApp extends StatefulWidget {
     this.speechSynthesizer,
     this.voiceSettingsStore,
     this.appLock,
+    this.backupStore,
+    this.backupFiles,
+    this.backupInfoStore,
+    this.attachmentPicker,
+    this.voiceConsent,
+    this.routingStore,
   });
+
+  /// Phase 4: where the user's provider / fallback choices are stored (tests inject an in-memory store).
+  final RoutingPreferencesStore? routingStore;
+
+  /// Phase 3: chat attachments and the microphone explanation.
+  final AttachmentPickerGateway? attachmentPicker;
+  final VoiceConsentStore? voiceConsent;
+
+  /// Phase 2: backup / restore. Null hides the Backup & Restore section (the
+  /// database could not be opened, or a test did not provide one).
+  final BackupStore? backupStore;
+  final BackupFileGateway? backupFiles;
+  final BackupInfoStore? backupInfoStore;
 
   /// Phase 7: the biometric app lock. main.dart passes the real one; tests
   /// pass one with a fake biometric service. Null means no lock at all, so
@@ -92,8 +117,12 @@ class _AlmusAppState extends State<AlmusApp> {
       widget.repository ?? MemoryConversationRepository();
   late final MemoryRepository _memoryRepository =
       widget.memoryRepository ?? VolatileMemoryRepository();
+  late final RoutingPreferencesController _routing =
+      RoutingPreferencesController(widget.routingStore ?? PrefsRoutingPreferencesStore());
+  late final ProviderStatusController _providerStatus =
+      ProviderStatusController(backend: _backend, settings: _settings);
   late final ChatService _chatService = widget.chatService ??
-      RoutedChatService(settings: _settings, backend: _backend);
+      RoutedChatService(settings: _settings, backend: _backend, routing: _routing);
   late final VoiceSettingsController _voiceSettings = VoiceSettingsController(
     widget.voiceSettingsStore ?? PrefsVoiceSettingsStore(),
   );
@@ -105,6 +134,7 @@ class _AlmusAppState extends State<AlmusApp> {
   void initState() {
     super.initState();
     unawaited(_settings.load());
+    unawaited(_routing.load());
     if (_voiceEnabled) unawaited(_voiceSettings.load());
     unawaited(widget.appLock?.load());
   }
@@ -112,6 +142,8 @@ class _AlmusAppState extends State<AlmusApp> {
   @override
   void dispose() {
     _settings.dispose();
+    _routing.dispose();
+    _providerStatus.dispose();
     _voiceSettings.dispose();
     if (widget.backendClient == null) {
       _backend.close();
@@ -156,6 +188,13 @@ class _AlmusAppState extends State<AlmusApp> {
                 speechSynthesizer: widget.speechSynthesizer,
                 voiceSettings: _voiceEnabled ? _voiceSettings : null,
                 appLock: widget.appLock,
+                backupStore: widget.backupStore,
+                backupFiles: widget.backupFiles,
+                backupInfoStore: widget.backupInfoStore,
+                attachmentPicker: widget.attachmentPicker,
+                voiceConsent: widget.voiceConsent,
+                routing: _routing,
+                providerStatus: _providerStatus,
               )
             : SplashScreen(
                 key: const ValueKey<String>('splash'),

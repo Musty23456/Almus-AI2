@@ -3,15 +3,21 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../attachments/attachment_controller.dart';
+import '../attachments/attachment_models.dart';
+import '../attachments/attachment_picker.dart';
+import '../attachments/attachment_plan.dart';
 import '../controllers/chat_controller.dart';
 import '../controllers/memory_controller.dart';
 import '../models/chat_message.dart';
 import '../models/memory_item.dart';
 import '../models/robot_state.dart';
 import '../theme/app_theme.dart';
+import '../voice/voice_consent.dart';
 import '../voice/voice_controller.dart';
 import '../voice/voice_settings.dart';
 import '../voice/voice_settings_store.dart';
+import '../widgets/attachment_widgets.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/memory_dialogs.dart';
 import '../widgets/message_bubble.dart';
@@ -26,9 +32,17 @@ class ChatScreen extends StatefulWidget {
     this.memory,
     this.voice,
     this.voiceSettings,
+    this.attachments,
+    this.voiceConsent,
   });
 
   final ChatController chat;
+
+  /// Phase 3: files waiting to be sent. Null hides the attach button.
+  final AttachmentController? attachments;
+
+  /// Phase 3: first-use explanation for the microphone. Null skips it.
+  final VoiceConsentStore? voiceConsent;
 
   /// Phase 6 voice features (microphone, read aloud). Null hides them all.
   final VoiceController? voice;
@@ -78,12 +92,93 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
-  void _send() {
+  void _toast(String message) {
+    ScaffoldMessenger.maybeOf(context)
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _send() async {
     final String text = _input.text;
-    if (text.trim().isEmpty || widget.chat.isBusy) return;
+    final AttachmentController? att = widget.attachments;
+    if (widget.chat.isBusy) return;
+    if (att != null && att.isBusy) {
+      _toast('Please wait: your files are still being read.');
+      return;
+    }
+    List<ChatAttachment> files = att?.readyItems ?? const <ChatAttachment>[];
+    if (text.trim().isEmpty && files.isEmpty) return;
+
+    AttachmentPlan plan = planAttachments(files, widget.chat.attachmentSupport);
+    if (text.trim().isEmpty && plan.analyzable.isEmpty) {
+      _toast('Write a message to go with the file. The AI cannot read these files, so it needs your words.');
+      return;
+    }
+    if (plan.skipped.isNotEmpty) {
+      final _SkipChoice? choice = await showDialog<_SkipChoice>(
+        context: context,
+        builder: (_) => _SkippedFilesDialog(plan: plan),
+      );
+      if (choice == null || !mounted) return;
+      if (choice == _SkipChoice.removeThem) {
+        for (final SkippedAttachment s in plan.skipped) {
+          att?.remove(s.attachment.id);
+        }
+        files = plan.analyzable;
+        plan = planAttachments(files, widget.chat.attachmentSupport);
+        if (text.trim().isEmpty && files.isEmpty) return;
+      }
+    }
+    if (widget.chat.isBusy) return;
     _input.clear();
     _interruptVoice();
-    unawaited(widget.chat.send(text));
+    widget.voice?.clearHeardPreview();
+    att?.clear();
+    unawaited(widget.chat.send(text, attachments: files));
+  }
+
+  Future<void> _onAttach() async {
+    final AttachmentController? att = widget.attachments;
+    if (att == null) return;
+    final AttachmentSource? source = await showAttachmentSheet(context);
+    if (source == null || !mounted) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    await att.addFrom(source);
+  }
+
+  Future<bool> _ensureVoiceConsent() async {
+    final VoiceConsentStore? store = widget.voiceConsent;
+    if (store == null || await store.isGranted()) return true;
+    if (!mounted) return false;
+    final bool? ok = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext ctx) => AlertDialog(
+        title: const Text('Before you use the microphone'),
+        content: const Text(kVoiceConsentText),
+        actions: <Widget>[
+          TextButton(
+            key: const Key('voice_consent_no'),
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Not now'),
+          ),
+          FilledButton(
+            key: const Key('voice_consent_yes'),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('I understand, continue'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return false;
+    await store.setGranted(true);
+    return true;
+  }
+
+  Future<void> _changeLanguage(VoiceLanguage language) async {
+    final VoiceSettingsController? settings = widget.voiceSettings;
+    if (settings == null || settings.value.language == language) return;
+    widget.voice?.cancelListening(quiet: true);
+    await settings.save(settings.value.copyWith(language: language));
   }
 
   /// A new message ends listening and any reply that is being read aloud.
@@ -128,7 +223,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _setInput(_inputBeforeVoice);
   }
 
-  void _onMicPressed() {
+  Future<void> _onMicPressed() async {
     final VoiceController? voice = widget.voice;
     if (voice == null) return;
     if (voice.isListening) {
@@ -136,9 +231,18 @@ class _ChatScreenState extends State<ChatScreen> {
     } else if (voice.isPreparing) {
       voice.cancelListening();
     } else {
+      if (!await _ensureVoiceConsent() || !mounted) return;
+      // Close the keyboard so it cannot compete for the microphone and so the
+      // listening bar is visible.
+      FocusManager.instance.primaryFocus?.unfocus();
       _inputBeforeVoice = _input.text;
       unawaited(voice.startListening());
     }
+  }
+
+  void _discardHeard() {
+    widget.voice?.clearHeardPreview();
+    _setInput(_inputBeforeVoice);
   }
 
   Future<void> _toggleAutoSpeak() async {
@@ -183,6 +287,7 @@ class _ChatScreenState extends State<ChatScreen> {
         if (widget.memory != null) widget.memory!,
         if (widget.voice != null) widget.voice!,
         if (widget.voiceSettings != null) widget.voiceSettings!,
+        if (widget.attachments != null) widget.attachments!,
       ]),
       builder: (BuildContext context, Widget? _) {
         final List<ChatMessage> messages = widget.chat.messages;
@@ -202,6 +307,8 @@ class _ChatScreenState extends State<ChatScreen> {
               onToggleAutoSpeak: _toggleAutoSpeak,
             ),
             _EngineBanner(isDemo: widget.chat.isDemo),
+            if (widget.chat.routeNotice != null)
+              _RouteNotice(text: widget.chat.routeNotice!),
             if (widget.memory != null)
               _MemoryBar(chat: widget.chat, memory: widget.memory!),
             if (widget.chat.storageNotice != null)
@@ -221,7 +328,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           title: 'Start a conversation',
                           message: widget.chat.isDemo
                               ? 'Say hello or ask anything. Replies are simulated in DEMO MODE so you can test the interface. Tap a suggestion to try it.'
-                              : 'Ask me anything. Replies come from Gemini through your backend. Tap a suggestion to start.',
+                              : 'Ask me anything. Replies come from your AI provider through your backend. Tap a suggestion to start.',
                           child: Wrap(
                             alignment: WrapAlignment.center,
                             spacing: 8,
@@ -242,7 +349,10 @@ class _ChatScreenState extends State<ChatScreen> {
                       itemCount: messages.length + (busy ? 1 : 0),
                       itemBuilder: (BuildContext context, int index) {
                         if (busy && index == 0) {
-                          return _TypingBubble(isDemo: widget.chat.isDemo);
+                          return _TypingBubble(
+                            isDemo: widget.chat.isDemo,
+                            note: widget.chat.busyNote,
+                          );
                         }
                         final int i =
                             messages.length - 1 - (busy ? index - 1 : index);
@@ -278,6 +388,17 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             if (voice != null && (voice.isSpeaking || voice.isPaused))
               _SpeakingBar(voice: voice),
+            if (voice != null && !voice.micActive && voice.heardPreview != null)
+              _HeardPreviewBar(
+                text: voice.heardPreview!,
+                onRetry: () => unawaited(voice.retryListening()),
+                onDiscard: _discardHeard,
+              ),
+            if (widget.attachments != null)
+              AttachmentStrip(
+                controller: widget.attachments!,
+                support: widget.chat.attachmentSupport,
+              ),
             _InputBar(
               controller: _input,
               onSend: busy ? null : _send,
@@ -285,6 +406,10 @@ class _ChatScreenState extends State<ChatScreen> {
               voiceEnabled: voice != null,
               micListening: voice?.micActive ?? false,
               onMic: busy ? null : _onMicPressed,
+              onAttach: widget.attachments == null || busy ? null : _onAttach,
+              attachCount: widget.attachments?.items.length ?? 0,
+              language: widget.voiceSettings?.value.language,
+              onLanguage: widget.voiceSettings == null ? null : _changeLanguage,
             ),
           ],
         );
@@ -580,7 +705,7 @@ class _EngineBanner extends StatelessWidget {
                   TextSpan(
                     text: isDemo
                         ? ' — replies are simulated on this device. Add your backend address in Settings to use Gemini.'
-                        : ' — replies come from Gemini through your backend. Free-tier limits may apply.',
+                        : ' — replies come from a remote AI provider (Gemini unless you chose another in Settings) through your backend. Free-tier limits may apply.',
                   ),
                 ],
               ),
@@ -594,9 +719,12 @@ class _EngineBanner extends StatelessWidget {
 }
 
 class _TypingBubble extends StatelessWidget {
-  const _TypingBubble({required this.isDemo});
+  const _TypingBubble({required this.isDemo, this.note});
 
   final bool isDemo;
+
+  /// e.g. "Sending 2 attached files…"
+  final String? note;
 
   @override
   Widget build(BuildContext context) {
@@ -621,7 +749,8 @@ class _TypingBubble extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             Text(
-              isDemo ? 'Almus is thinking… (demo)' : 'Almus is thinking…',
+              note ??
+                  (isDemo ? 'Almus is thinking… (demo)' : 'Almus is thinking…'),
               style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13),
             ),
           ],
@@ -639,7 +768,19 @@ class _InputBar extends StatelessWidget {
     this.voiceEnabled = false,
     this.micListening = false,
     this.onMic,
+    this.onAttach,
+    this.attachCount = 0,
+    this.language,
+    this.onLanguage,
   });
+
+  /// Phase 3: attach button (null hides it) and how many files are waiting.
+  final VoidCallback? onAttach;
+  final int attachCount;
+
+  /// Phase 3: quick voice-language switch (null hides it).
+  final VoiceLanguage? language;
+  final ValueChanged<VoiceLanguage>? onLanguage;
 
   final TextEditingController controller;
   final VoidCallback? onSend;
@@ -667,6 +808,17 @@ class _InputBar extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: <Widget>[
+          if (onAttach != null || attachCount > 0)
+            IconButton(
+              key: const Key('attach_button'),
+              tooltip: 'Attach a file',
+              onPressed: onAttach,
+              icon: Badge(
+                isLabelVisible: attachCount > 0,
+                label: Text('$attachCount'),
+                child: const Icon(Icons.attach_file),
+              ),
+            ),
           Expanded(
             child: TextField(
               key: const Key('chat_input'),
@@ -695,6 +847,35 @@ class _InputBar extends StatelessWidget {
           ),
           if (voiceEnabled) ...<Widget>[
             const SizedBox(width: 4),
+            if (language != null && onLanguage != null && !micListening)
+              PopupMenuButton<VoiceLanguage>(
+                key: const Key('voice_language_button'),
+                tooltip: 'Voice language',
+                onSelected: onLanguage,
+                itemBuilder: (BuildContext context) => <PopupMenuEntry<VoiceLanguage>>[
+                  for (final VoiceLanguage l in VoiceLanguage.values)
+                    CheckedPopupMenuItem<VoiceLanguage>(
+                      key: Key('voice_language_${l.code}'),
+                      value: l,
+                      checked: l == language,
+                      child: Text(
+                        l == VoiceLanguage.hausa
+                            ? '${l.label} (only if your phone supports it)'
+                            : l.label,
+                      ),
+                    ),
+                ],
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                  child: Text(
+                    language!.code.toUpperCase(),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: cs.primary,
+                    ),
+                  ),
+                ),
+              ),
             IconButton(
               key: const Key('mic_button'),
               tooltip: micListening ? 'Stop listening' : 'Voice input',
@@ -776,7 +957,11 @@ class _ListeningBar extends StatelessWidget {
                 Text(
                   preparing
                       ? 'Getting the microphone ready…'
-                      : 'Listening (${language.label})…',
+                      : voice.isProcessing
+                          ? 'Processing what you said…'
+                          : !voice.micOpen
+                              ? 'Starting the microphone…'
+                              : 'Listening (${language.label})…',
                   key: const Key('listening_label'),
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
@@ -785,7 +970,9 @@ class _ListeningBar extends StatelessWidget {
                       ? heard
                       : (preparing
                           ? 'Allow the microphone if Android asks.'
-                          : 'Speak now. The microphone is on only while this bar is shown. Audio is not saved.'),
+                          : !voice.micOpen
+                              ? 'Wait a moment, then speak.'
+                              : 'Speak now. The microphone is on only while this bar is shown. Audio is not saved.'),
                   key: const Key('listening_transcript'),
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
@@ -806,7 +993,7 @@ class _ListeningBar extends StatelessWidget {
           if (!preparing)
             FilledButton(
               key: const Key('finish_listening_button'),
-              onPressed: onDone,
+              onPressed: voice.isProcessing ? null : onDone,
               child: const Text('Done'),
             ),
         ],
@@ -980,6 +1167,154 @@ class _VoiceNotice extends StatelessWidget {
             visualDensity: VisualDensity.compact,
             onPressed: onDismiss,
             icon: const Icon(Icons.close, size: 18),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+enum _SkipChoice { sendAnyway, removeThem }
+
+/// Explains, before sending, which attached files the AI will NOT read.
+class _SkippedFilesDialog extends StatelessWidget {
+  const _SkippedFilesDialog({required this.plan});
+
+  final AttachmentPlan plan;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      key: const Key('skipped_files_dialog'),
+      title: const Text('Some files will not be analyzed'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            for (final SkippedAttachment s in plan.skipped)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text('${s.attachment.name}: ${s.reason}.'),
+              ),
+            const SizedBox(height: 4),
+            const Text(
+              'If you send anyway, the AI will not see these files and your message will say they were not analyzed.',
+            ),
+          ],
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          key: const Key('skip_cancel'),
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          key: const Key('skip_remove'),
+          onPressed: () => Navigator.of(context).pop(_SkipChoice.removeThem),
+          child: const Text('Remove them'),
+        ),
+        FilledButton(
+          key: const Key('skip_send'),
+          onPressed: () => Navigator.of(context).pop(_SkipChoice.sendAnyway),
+          child: const Text('Send anyway'),
+        ),
+      ],
+    );
+  }
+}
+
+/// The recognized words, shown for checking before they are sent. The same
+/// words are in the message box, where they can be edited.
+class _HeardPreviewBar extends StatelessWidget {
+  const _HeardPreviewBar({
+    required this.text,
+    required this.onRetry,
+    required this.onDiscard,
+  });
+
+  final String text;
+  final VoidCallback onRetry;
+  final VoidCallback onDiscard;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    return Container(
+      key: const Key('heard_preview'),
+      margin: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+      padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+      decoration: BoxDecoration(
+        color: cs.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: <Widget>[
+          Icon(Icons.hearing, size: 20, color: cs.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text(
+                  'Heard. Check it, edit it if needed, then send.',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                ),
+                Text(
+                  text,
+                  key: const Key('heard_preview_text'),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            key: const Key('voice_retry'),
+            onPressed: onRetry,
+            child: const Text('Retry'),
+          ),
+          TextButton(
+            key: const Key('voice_discard'),
+            onPressed: onDiscard,
+            child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shown when a fallback provider answered (Phase 4).
+class _RouteNotice extends StatelessWidget {
+  const _RouteNotice({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    return Container(
+      key: const Key('route_notice'),
+      margin: const EdgeInsets.fromLTRB(16, 2, 16, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: cs.secondaryContainer.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: <Widget>[
+          Icon(Icons.swap_horiz_rounded, size: 18, color: cs.onSecondaryContainer),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 12.5, height: 1.35, color: cs.onSecondaryContainer),
+            ),
           ),
         ],
       ),

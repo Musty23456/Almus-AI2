@@ -30,6 +30,12 @@ Rules: the last message must be `user`; roles are `user` or `assistant`; each me
 ### `GET /v1/models`
 Needs the token. Lists model names your key can use with `generateContent`, plus the configured model. Handy for choosing `GEMINI_MODEL`.
 
+### Phase 4: providers and routing
+`POST /v1/chat` accepts an optional `routing` object and reports which provider answered; `GET /v1/providers`,
+`POST /v1/providers/check` and `GET /v1/providers/<id>/models` expose provider status. Gemini, Groq, OpenRouter and any
+OpenAI-compatible service are supported; fallback to another provider only happens if the user allowed it. Everything
+(env variables, error categories, retry rules, adding a provider) is in `../docs/PROVIDERS.md`.
+
 ### Errors
 Always `{ "error": { "code": "...", "message": "...", "retryAfterSeconds": 12 } }`.
 
@@ -40,9 +46,10 @@ Always `{ "error": { "code": "...", "message": "...", "retryAfterSeconds": 12 } 
 | 413 | `payload_too_large` | Body bigger than `MAX_BODY_BYTES` |
 | 415 | `unsupported_media_type` | Not `application/json` |
 | 422 | `blocked` | Gemini declined to answer |
-| 429 | `rate_limited`, `daily_limit_reached`, `quota_or_rate_limit` | Backend limit, or Gemini rate limit / free quota |
+| 429 | `rate_limited`, `daily_limit_reached`, `quota_or_rate_limit` | Backend limit, or a provider's rate limit / quota |
+| 422 | `context_too_large`, `unsupported_capability` | No allowed provider can take this request |
 | 502 | `upstream_unreachable`, `upstream_auth`, `model_not_found`, `invalid_upstream_response`, `empty_response`, `upstream_bad_request`, `upstream_error` | Problem talking to Gemini |
-| 503 | `server_not_configured`, `upstream_unavailable` | Missing env vars / Gemini down |
+| 503 | `server_not_configured`, `upstream_unavailable`, `all_providers_failed`, `provider_needs_model` | Missing env vars / providers down |
 | 504 | `upstream_timeout` | Gemini took longer than `UPSTREAM_TIMEOUT_MS` |
 
 Error messages never contain your API key, access token or message text, and request bodies are never logged.
@@ -89,3 +96,12 @@ GEMINI_API_KEY=... APP_ACCESS_TOKEN=test npm start
 
 ## Phase 4 note
 If you set your own `SYSTEM_PROMPT`, it replaces the default prompt that tells the model it has no memory except the notes provided. The memory block sent by the app repeats that rule, so memory still works, but consider keeping a sentence like it in your prompt.
+
+
+## Attachments (service 0.3.0)
+`POST /v1/chat` accepts an optional `attachments` array: `[{ "name": "report.pdf", "kind": "pdf|docx|xlsx|csv|text|markdown", "text": "...", "truncated": false }]`.
+The app sends only text it extracted on the phone. Files, images, device paths, URIs or any other field are rejected with 400
+(`invalid_attachment`, `unsupported_attachment`). Limits (env): `MAX_ATTACHMENTS=5`, `MAX_ATTACHMENT_CHARS=30000`,
+`MAX_ATTACHMENT_TOTAL_CHARS=60000`, `MAX_BODY_BYTES=400000`. The text is appended to the newest user message between
+`BEGIN/END ATTACHED FILE` lines and the model is told to treat it as data, not instructions. Attachment text is never logged.
+The response gains `attachmentsUsed`.
