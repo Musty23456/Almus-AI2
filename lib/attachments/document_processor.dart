@@ -118,7 +118,7 @@ class DocumentProcessor {
       );
     }
 
-    final _Outcome outcome = useIsolate
+    final _Outcome outcome = useIsolate && bytes.length > 256 * 1024
         ? await Isolate.run<_Outcome>(() => _extract(c.kind, bytes))
         : _extract(c.kind, bytes);
     if (outcome.error != null) {
