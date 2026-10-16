@@ -427,7 +427,9 @@ List<BackupConversation> parseAlmusMarkdown(String raw) {
         i++;
       }
       // Remove the single blank separator line the writer adds.
-      if (body.isNotEmpty && body.last.isEmpty) body.removeLast();
+      for (int k = 0; k < 2 && body.isNotEmpty && body.last.isEmpty; k++) {
+        body.removeLast();
+      }
       final _RawMessage m = _RawMessage(
         at,
         role! as String,
