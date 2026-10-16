@@ -27,6 +27,10 @@ class FakeRecognizer implements SpeechRecognizerService {
   void Function(String text, bool isFinal)? _onText;
   void Function(RecognizerProblem problem)? _onProblem;
   void Function()? _onDone;
+  void Function()? _onListening;
+
+  /// When true (default) the engine reports "listening" right after start.
+  bool autoListening = true;
 
   @override
   Future<RecognizerInit> prepare(VoiceLanguage language) async {
@@ -43,10 +47,13 @@ class FakeRecognizer implements SpeechRecognizerService {
     required void Function(String text, bool isFinal) onText,
     required void Function(RecognizerProblem problem) onProblem,
     required void Function() onDone,
+    void Function()? onListening,
   }) async {
     startCalls++;
     listening = true;
     lastLocale = localeId;
+    _onListening = onListening;
+    if (autoListening) onListening?.call();
     _onText = onText;
     _onProblem = onProblem;
     _onDone = onDone;
@@ -72,6 +79,9 @@ class FakeRecognizer implements SpeechRecognizerService {
 
   // ---- test drivers
   void say(String text, {bool isFinal = false}) => _onText?.call(text, isFinal);
+
+  /// Reports that the engine really opened the microphone.
+  void engineListening() => _onListening?.call();
 
   void finish() {
     listening = false;

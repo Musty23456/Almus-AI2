@@ -1,5 +1,11 @@
 # ALMUS AI Personal Assistant — Phase 9
 
+> **Phase 4 (multi-provider AI) is the latest work:** the backend can use Gemini, Groq, OpenRouter or any OpenAI-compatible
+> service, with health tracking, bounded retries and opt-in fallback. See `PHASE_4_REPORT.md` and `docs/PROVIDERS.md`.
+> The Flutter code from Phases 1-4 has still never been compiled or run (no Flutter SDK was available).
+
+> **Phase 1 stabilization (audit) is documented in `PHASE_1_REPORT.md`.** See also `CHANGELOG.md`, `docs/ARCHITECTURE.md`, `docs/KNOWN_LIMITATIONS.md` and `docs/BUILD_AND_TEST.md`. The `android/` folder is generated: run `bash tool/bootstrap_android.sh` before a local Android build.
+
 A personal AI assistant for Android, built with Flutter (Material 3).
 
 **Phase 2** adds real Gemini conversations through a backend that you deploy yourself (see the separate `almus-backend` project). The app never contains your Gemini API key. In **Settings → Gemini connection** you enter your backend URL and an access token. With no backend URL the app stays in clearly labelled **DEMO MODE** (scripted replies).
@@ -174,6 +180,11 @@ flutter run
 3. Chat switches to LIVE MODE. Clear the URL to return to DEMO MODE.
 
 The model is chosen on the backend (`GEMINI_MODEL`), so changing it never needs a new APK. The release APK includes the INTERNET permission (added by the workflow).
+
+## Other AI providers (Phase 4)
+Gemini stays the default. To add Groq, OpenRouter or another OpenAI-compatible service, set its key and model on the
+**backend** (never in the app), then open **Settings → AI providers** to check connections, pick a model and decide
+whether automatic fallback may be used (off by default). Guide: `docs/PROVIDERS.md`.
 
 ## Known limitations
 - Replies are not streamed; they appear when complete. Voice (Phase 6) has the limits listed in its section; it has not been run on a physical phone yet.
