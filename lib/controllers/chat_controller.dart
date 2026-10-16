@@ -270,7 +270,7 @@ class ChatController extends ChangeNotifier implements VoiceAvatarHooks {
       if (_disposed || generation != _generation) return;
       // Phase 4: the label names the provider that really answered (default GEMINI as before).
       final ReplyProvenance? provenance =
-          engine is ReplyProvenanceSource ? engine.lastProvenance : null;
+          engine is ReplyProvenanceSource ? (engine as ReplyProvenanceSource).lastProvenance : null;
       _routeNotice = _noticeFor(provenance);
       final ChatMessage assistantMessage = _newMessage(
         reply,
