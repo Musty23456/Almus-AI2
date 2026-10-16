@@ -18,6 +18,7 @@ class Session {
 
 Future<Session> begin(PlatformSpeechRecognizer r, [String locale = 'en_US']) async {
   final Session s = Session();
+  await r.prepare(VoiceLanguage.english);
   await r.start(
     localeId: locale,
     onText: (String t, bool f) => s.texts.add((t, f)),
