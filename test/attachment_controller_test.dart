@@ -178,7 +178,7 @@ void main() {
 
   test('files stay in the box across screen changes (state lives in the controller)', () async {
     final FakePicker p = FakePicker()..next = <PickedAttachment>[pick('a.txt', utf8Bytes('a'))];
-    final AttachmentController c = make(p);
+    final AttachmentController c = make(p, max: 6);
     await c.addFrom(AttachmentSource.text);
     final List<ChatAttachment> before = c.items;
     expect(c.items, before);
