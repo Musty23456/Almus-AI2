@@ -39,7 +39,7 @@ class LocalAIService {
     // Validate and execute
     try {
       tool.validate(input);
-    } on ToolError catch (e) {
+    } on ToolError {
       rethrow;
     } catch (e) {
       throw ToolError('validation_error', e.toString());
