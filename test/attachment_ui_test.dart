@@ -152,6 +152,9 @@ void main() {
     expect(find.byKey(const Key('skipped_files_dialog')), findsNothing);
     expect(find.byType(SnackBar), findsOneWidget);
     expect(find.byKey(const Key('attachment_strip')), findsOneWidget);
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(SnackBar), findsNothing);
 
     await tester.enterText(find.byKey(const Key('chat_input')), 'hi');
     await tester.tap(find.byKey(const Key('send_button')));
