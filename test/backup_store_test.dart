@@ -35,10 +35,9 @@ void main() {
         memories: <BackupMemory>[makeMemory('om1', text: 'Old memory')],
         settings: const BackupSettings(memoryEnabled: true),
       ),
-      const ImportOptions(),
+      const ImportOptions(mode: ImportMode.replace),
     );
   }
-
   group('read', () {
     test('exports stored data with ids, order and timestamps', () async {
       await seed();
