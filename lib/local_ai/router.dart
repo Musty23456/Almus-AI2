@@ -33,13 +33,10 @@ class LocalRouter {
     if (request is String) {
       final String s = request.trim().toLowerCase();
       // calculator cues
-      final calcPatterns = ['calculate', 'calc', 'what is', 'evaluate', 'compute', r'\d+'];
-      for (final p in calcPatterns) {
-        if (s.startsWith('calc') || s.startsWith('calculate') || s.startsWith('what is') || RegExp(r"^[0-9\-\(]").hasMatch(s)) {
-          if (registry.get('calculator') != null) return RouteDecision(toolId: 'calculator');
-          break;
-        }
+      if (s.startsWith('calc') || s.startsWith('calculate') || s.startsWith('what is') || RegExp(r"^[0-9\-\(]").hasMatch(s)) {
+        if (registry.get('calculator') != null) return RouteDecision(toolId: 'calculator');
       }
+
       if (s.contains('mean') || s.contains('median') || s.contains('standard deviation') || s.contains('variance') || s.contains('mode')) {
         if (registry.get('statistics') != null) return RouteDecision(toolId: 'statistics');
       }
