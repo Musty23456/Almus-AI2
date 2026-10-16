@@ -90,7 +90,8 @@ void main() {
         pick('cut.png', truncatedPng()),
         pick('good.txt', utf8Bytes('fine')),
       ];
-    final AttachmentController c = make(p);
+    // Six files are picked, so allow six (the controller drops any beyond the limit).
+    final AttachmentController c = make(p, max: 6);
     await c.addFrom(AttachmentSource.document);
     expect(c.items.map((ChatAttachment a) => a.name), <String>['good.txt']);
     expect(c.problems.length, 5);
