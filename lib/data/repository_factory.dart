@@ -15,6 +15,7 @@ class RepositoryOpenResult {
     required this.persistent,
     required this.memory,
     this.backupStore,
+    this.database,
   });
 
   final ConversationRepository repository;
@@ -26,6 +27,9 @@ class RepositoryOpenResult {
   /// Phase 2: backup / restore of the stored data. Null when the database
   /// could not be opened (there is nothing persistent to back up then).
   final BackupStore? backupStore;
+
+  /// The underlying AppDatabase when SQLite was opened. Null for in-memory fallback.
+  final AppDatabase? database;
 }
 
 /// Opens the SQLite database. If that fails for any reason, the app keeps
@@ -38,12 +42,14 @@ Future<RepositoryOpenResult> openDefaultRepository() async {
       persistent: true,
       memory: SqliteMemoryRepository(database),
       backupStore: SqliteBackupStore(database),
+      database: database,
     );
   } on Exception {
     return RepositoryOpenResult(
       MemoryConversationRepository(),
       persistent: false,
       memory: VolatileMemoryRepository(),
+      database: null,
     );
   }
 }
