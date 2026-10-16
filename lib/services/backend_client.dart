@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../ai/provider_info.dart';
 import '../models/app_settings.dart';
 import 'chat_service.dart';
 
@@ -12,6 +13,15 @@ class ConnectionInfo {
 
   final String model;
   final String? fallbackModel;
+}
+
+/// A reply plus which provider produced it (Phase 4). [provenance] is null when the backend did not say
+/// (older backends), in which case the app keeps its previous behaviour.
+class ChatReply {
+  const ChatReply(this.text, this.provenance);
+
+  final String text;
+  final ReplyProvenance? provenance;
 }
 
 /// Talks to the Almus backend. The Gemini API key never reaches the app;
@@ -32,10 +42,38 @@ class BackendClient {
     AppSettings settings,
     List<Map<String, String>> messages, {
     String? memoryContext,
+    List<Map<String, Object?>>? attachments,
+    Map<String, Object?>? routing,
+  }) async {
+    final ChatReply reply = await chatWithInfo(
+      settings,
+      messages,
+      memoryContext: memoryContext,
+      attachments: attachments,
+      routing: routing,
+    );
+    return reply.text;
+  }
+
+  /// Like [chat], and also reports which provider answered. [routing] is the user's provider
+  /// preferences (null = backend defaults, nothing extra is sent).
+  Future<ChatReply> chatWithInfo(
+    AppSettings settings,
+    List<Map<String, String>> messages, {
+    String? memoryContext,
+    List<Map<String, Object?>>? attachments,
+    Map<String, Object?>? routing,
   }) async {
     final Map<String, dynamic> body = <String, dynamic>{'messages': messages};
+    // Phase 3: only text the app extracted from files the user attached.
+    if (attachments != null && attachments.isNotEmpty) {
+      body['attachments'] = attachments;
+    }
     if (memoryContext != null && memoryContext.trim().isNotEmpty) {
       body['memoryContext'] = memoryContext;
+    }
+    if (routing != null && routing.isNotEmpty) {
+      body['routing'] = routing;
     }
     final Map<String, dynamic> json = await _send(
       settings,
@@ -50,7 +88,79 @@ class BackendClient {
         code: 'invalid_response',
       );
     }
-    return reply.trim();
+    return ChatReply(reply.trim(), _provenanceFrom(json));
+  }
+
+  ReplyProvenance? _provenanceFrom(Map<String, dynamic> json) {
+    final Object? id = json['provider'];
+    if (id is! String || id.isEmpty) return null;
+    final Object? name = json['providerName'];
+    final Object? model = json['model'];
+    final Object? route = json['route'];
+    bool fallback = false;
+    final List<String> failed = <String>[];
+    final List<String> omitted = <String>[];
+    if (route is Map<String, dynamic>) {
+      fallback = route['fallbackUsed'] == true;
+      final Object? f = route['failed'];
+      if (f is List) {
+        for (final Object? item in f) {
+          if (item is Map<String, dynamic> && item['provider'] is String) {
+            failed.add(item['provider'] as String);
+          }
+        }
+      }
+      final Object? o = route['omitted'];
+      if (o is List) omitted.addAll(o.whereType<String>());
+    }
+    return ReplyProvenance(
+      providerId: id,
+      providerName: name is String ? name : id,
+      model: model is String ? model : null,
+      fallbackUsed: fallback,
+      failedProviders: failed,
+      omitted: omitted,
+    );
+  }
+
+  /// What the backend knows about its providers. Makes no call to any provider, so nothing in
+  /// the result is a confirmation that a provider works.
+  Future<ProvidersSnapshot> listProviders(AppSettings settings) async {
+    final Map<String, dynamic> json = await _send(settings, 'GET', '/v1/providers');
+    return ProvidersSnapshot.fromJson(json);
+  }
+
+  /// Asks the backend to really contact its providers (all, or just [providerId]).
+  Future<ProvidersSnapshot> checkProviders(
+    AppSettings settings, {
+    String? providerId,
+  }) async {
+    final Map<String, dynamic> json = await _send(
+      settings,
+      'POST',
+      '/v1/providers/check',
+      body: providerId == null ? <String, dynamic>{} : <String, dynamic>{'provider': providerId},
+    );
+    return ProvidersSnapshot.fromJson(json);
+  }
+
+  /// The provider's own live list of models this server may use.
+  Future<List<ProviderModel>> listProviderModels(
+    AppSettings settings,
+    String providerId,
+  ) async {
+    final Map<String, dynamic> json = await _send(
+      settings,
+      'GET',
+      '/v1/providers/${Uri.encodeComponent(providerId)}/models',
+    );
+    final Object? list = json['models'];
+    if (list is! List) return const <ProviderModel>[];
+    return list
+        .whereType<Map<String, dynamic>>()
+        .where((Map<String, dynamic> m) => m['id'] is String)
+        .map(ProviderModel.fromJson)
+        .toList();
   }
 
   /// Checks the backend address, access token and server-side Gemini setup
@@ -59,8 +169,16 @@ class BackendClient {
     final Map<String, dynamic> health =
         await _send(settings, 'GET', '/health', auth: false);
     if (health['geminiConfigured'] != true) {
+      // Phase 4: a backend may use another provider instead of Gemini.
+      if (health['aiConfigured'] == true) {
+        final ProvidersSnapshot snapshot = await listProviders(settings);
+        final ProviderInfo? main = snapshot.primaryDefault == null
+            ? null
+            : snapshot.byId(snapshot.primaryDefault!);
+        return ConnectionInfo(model: main?.model ?? 'not selected');
+      }
       throw const ChatServiceException(
-        'The backend is reachable, but GEMINI_API_KEY is not set on the server.',
+        'The backend is reachable, but no AI provider (for example GEMINI_API_KEY) is set on the server.',
         code: 'server_not_configured',
       );
     }

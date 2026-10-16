@@ -1,3 +1,6 @@
+import '../ai/routing_preferences.dart';
+import '../attachments/attachment_models.dart';
+import '../attachments/attachment_plan.dart';
 import '../controllers/settings_controller.dart';
 import '../models/chat_message.dart';
 import 'backend_client.dart';
@@ -40,16 +43,27 @@ List<Map<String, String>> buildChatPayload(
 
 /// Uses the real backend (Gemini) when a backend address is saved in Settings,
 /// otherwise falls back to the scripted demo engine.
-class RoutedChatService implements ChatService {
+class RoutedChatService implements AttachmentCapableChatService, ReplyProvenanceSource {
   RoutedChatService({
     required this.settings,
     required this.backend,
     ChatService? demo,
+    this.routing,
   }) : demo = demo ?? DemoChatService();
 
   final SettingsController settings;
   final BackendClient backend;
   final ChatService demo;
+
+  /// Phase 4: the user's provider choices (null = backend defaults, nothing extra is sent).
+  final RoutingPreferencesController? routing;
+
+  ReplyProvenance? _lastProvenance;
+
+  @override
+  ReplyProvenance? get lastProvenance => _lastProvenance;
+
+  Map<String, Object?>? get _routingJson => routing?.value.toRequestJson();
 
   @override
   bool get isDemo => !settings.value.isConfigured;
@@ -58,18 +72,71 @@ class RoutedChatService implements ChatService {
   String get engineName => isDemo ? 'DEMO MODE' : 'LIVE · GEMINI';
 
   @override
+  AttachmentSupport get attachmentSupport => isDemo
+      ? AttachmentSupport.none
+      : const AttachmentSupport(
+          extractedText: true,
+          images: false,
+          providerName: 'your AI provider (through your backend)',
+        );
+
+  @override
+  Future<String> replyWithAttachments(
+    String userMessage, {
+    List<ChatMessage> history = const <ChatMessage>[],
+    String? memoryContext,
+    required List<ChatAttachment> attachments,
+  }) {
+    if (isDemo) {
+      _lastProvenance = null;
+      return demo.reply(userMessage, history: history);
+    }
+    return _liveReply(
+      buildChatPayload(userMessage, history),
+      memoryContext: memoryContext,
+      attachments: <Map<String, Object?>>[
+        for (final ChatAttachment a in attachments)
+          if (a.kind?.apiKind != null && a.hasText)
+            <String, Object?>{
+              'name': a.name,
+              'kind': a.kind!.apiKind,
+              'text': a.extractedText,
+              'truncated': a.truncated,
+            },
+      ],
+    );
+  }
+
+  @override
   Future<String> reply(
     String userMessage, {
     List<ChatMessage> history = const <ChatMessage>[],
     String? memoryContext,
   }) {
     if (isDemo) {
+      _lastProvenance = null;
       return demo.reply(userMessage, history: history);
     }
-    return backend.chat(
-      settings.value,
+    return _liveReply(
       buildChatPayload(userMessage, history),
       memoryContext: memoryContext,
     );
+  }
+
+  Future<String> _liveReply(
+    List<Map<String, String>> payload, {
+    String? memoryContext,
+    List<Map<String, Object?>>? attachments,
+  }) async {
+    _lastProvenance = null;
+    final ChatReply reply = await backend.chatWithInfo(
+      settings.value,
+      payload,
+      memoryContext: memoryContext,
+      attachments: attachments,
+      routing: _routingJson,
+    );
+    _lastProvenance = reply.provenance;
+    return reply.text;
   }
 }

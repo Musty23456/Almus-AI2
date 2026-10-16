@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../ai/provider_status_controller.dart';
+import '../ai/routing_preferences.dart';
+import '../backup/backup_controller.dart';
 import '../controllers/settings_controller.dart';
 import '../models/app_settings.dart';
 import '../security/app_lock_controller.dart';
@@ -12,8 +15,10 @@ import '../utils/app_info.dart';
 import '../voice/voice_controller.dart';
 import '../voice/voice_settings.dart';
 import '../voice/voice_settings_store.dart';
+import 'ai_providers_screen.dart';
 import 'avatar_lab_screen.dart';
 import 'face_enrollment_screen.dart';
+import '../widgets/backup_restore_section.dart';
 import '../widgets/glow_card.dart';
 import '../widgets/screen_header.dart';
 import '../widgets/security_settings_section.dart';
@@ -29,7 +34,21 @@ class SettingsScreen extends StatefulWidget {
     this.voiceSettings,
     this.voice,
     this.appLock,
+    this.backup,
+    this.backupUnavailable = false,
+    this.routing,
+    this.providers,
   });
+
+  /// Phase 4: provider choices and status. Both must be given to show the "AI providers" section.
+  final RoutingPreferencesController? routing;
+  final ProviderStatusController? providers;
+
+  /// Phase 2: backup & restore. Null hides the section.
+  final BackupController? backup;
+
+  /// True when storage failed to open, so there is nothing to back up.
+  final bool backupUnavailable;
 
   /// Phase 7: biometric app lock. Null hides the Security section.
   final AppLockController? appLock;
@@ -398,6 +417,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const SectionLabel('Gemini connection'),
         _connectionCard(theme),
+        if (widget.routing != null && widget.providers != null) ...<Widget>[
+          const SectionLabel('AI providers'),
+          GlowCard(
+            key: const Key('ai_providers_tile'),
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const CircleAvatar(child: Icon(Icons.hub_outlined)),
+              title: const Text('Providers, models and fallback'),
+              subtitle: const Text(
+                'See which AI service answers, pick a model, and decide whether another service may help if it fails (off by default).',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => AiProvidersScreen(
+                    settings: widget.settings,
+                    status: widget.providers!,
+                    routing: widget.routing!,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
         if (widget.voiceSettings != null) ...<Widget>[
           const SectionLabel('Voice'),
           _voiceCard(theme, widget.voiceSettings!),
@@ -405,6 +448,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (widget.appLock != null) ...<Widget>[
           const SectionLabel('Security'),
           SecuritySettingsCard(controller: widget.appLock!),
+        ],
+        if (widget.backup != null) ...<Widget>[
+          const SectionLabel('Backup & Restore'),
+          BackupRestoreCard(controller: widget.backup!),
+        ] else if (widget.backupUnavailable) ...<Widget>[
+          const SectionLabel('Backup & Restore'),
+          const GlowCard(
+            child: Text(
+              'Backup is unavailable because the local database could not be opened, so nothing is being saved on this phone right now.',
+            ),
+          ),
         ],
         const SectionLabel('Face security · Phase 9'),
         GlowCard(
@@ -549,6 +603,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               SizedBox(height: 10),
               _BulletRow(
                 'Conversations are saved in a local database on this phone. Delete one chat from History, or use Clear all history to remove everything.',
+              ),
+              SizedBox(height: 10),
+              _BulletRow(
+                'AI providers: Gemini answers by default. Your backend may offer other providers (for example Groq or OpenRouter). Another provider receives your message only if you chose it as main provider, or turned on automatic fallback and ticked it. Fallback is off by default, and memory notes and file text are withheld from a fallback unless you allow them.',
               ),
               SizedBox(height: 10),
               _BulletRow(

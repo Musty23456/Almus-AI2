@@ -90,6 +90,9 @@ class VoiceController extends ChangeNotifier {
   Timer? _startTimer;
   Timer? _stopTimer;
   String _lastText = '';
+  bool _micOpen = false;
+  bool _processing = false;
+  String? _heard;
   String _currentText = '';
   String? _speakingId;
   String? _notice;
@@ -106,6 +109,23 @@ class VoiceController extends ChangeNotifier {
 
   /// Text recognized so far in the current listening session.
   String get transcript => _lastText;
+
+  /// True once the engine really opened the microphone (before that the bar
+  /// says "starting", so nobody speaks into a closed microphone).
+  bool get micOpen => _micOpen;
+
+  /// True after the user pressed stop, while the engine finishes.
+  bool get isProcessing => _processing;
+
+  /// The words recognized by the last session that ended with text. The
+  /// chat shows them for checking before anything is sent.
+  String? get heardPreview => _heard;
+
+  void clearHeardPreview() {
+    if (_heard == null) return;
+    _heard = null;
+    _notify();
+  }
 
   /// Id of the message being read aloud (null for sample text or when quiet).
   String? get speakingMessageId => _speakingId;
@@ -141,6 +161,9 @@ class VoiceController extends ChangeNotifier {
     final int session = ++_listenSession;
     _notice = null;
     _lastText = '';
+    _heard = null;
+    _micOpen = false;
+    _processing = false;
     if (before == VoicePhase.speaking || before == VoicePhase.paused) {
       _endSpeechSilently();
       await synthesizer.stop();
@@ -167,7 +190,20 @@ class VoiceController extends ChangeNotifier {
       onText: (String text, bool isFinal) => _onText(session, text),
       onProblem: (RecognizerProblem p) => _onProblem(session, p),
       onDone: () => _onDone(session),
+      onListening: () => _onEngineListening(session),
     );
+  }
+
+  /// Stops this session (silently) and starts a new one: the Retry button.
+  Future<void> retryListening() async {
+    cancelListening(quiet: true);
+    await startListening();
+  }
+
+  void _onEngineListening(int session) {
+    if (!_listenCurrent(session, VoicePhase.listening)) return;
+    _micOpen = true;
+    _notify();
   }
 
   /// Stops listening and keeps what was heard (the "done" action).
@@ -178,6 +214,8 @@ class VoiceController extends ChangeNotifier {
     }
     if (_phase != VoicePhase.listening) return;
     final int session = _listenSession;
+    _processing = true;
+    _notify();
     _stopTimer?.cancel();
     _stopTimer = Timer(stopTimeout, () => _onDone(session));
     await recognizer.stop();
@@ -195,6 +233,8 @@ class VoiceController extends ChangeNotifier {
     _apply(VoiceEvent.listenCancelled);
     if (wasListening) avatar.setVoiceInputActive(false);
     _lastText = '';
+    _micOpen = false;
+    _processing = false;
     unawaited(recognizer.cancel());
     if (!quiet) onCancelled?.call();
     _notify();
@@ -212,7 +252,7 @@ class VoiceController extends ChangeNotifier {
     final String heard = _lastText.trim();
     _finishListening(VoiceEvent.listenError);
     if (problem == RecognizerProblem.noSpeech && heard.isNotEmpty) {
-      onTranscript?.call(heard, true);
+      _deliver(heard);
       return;
     }
     _setNotice(
@@ -227,7 +267,7 @@ class VoiceController extends ChangeNotifier {
     final String heard = _lastText.trim();
     _finishListening(VoiceEvent.recognitionFinished);
     if (heard.isNotEmpty) {
-      onTranscript?.call(heard, true);
+      _deliver(heard);
     } else {
       _setNotice(problemMessage(
         RecognizerProblem.noSpeech,
@@ -236,7 +276,15 @@ class VoiceController extends ChangeNotifier {
     }
   }
 
+  void _deliver(String heard) {
+    _heard = heard;
+    onTranscript?.call(heard, true);
+    _notify();
+  }
+
   void _finishListening(VoiceEvent event) {
+    _micOpen = false;
+    _processing = false;
     _stopTimer?.cancel();
     _apply(event);
     avatar.setVoiceInputActive(false);
@@ -264,6 +312,8 @@ class VoiceController extends ChangeNotifier {
         return 'The speech recognizer is busy. Close other apps that use the microphone and try again.';
       case RecognizerProblem.network:
         return 'Speech recognition could not reach the internet. Check your connection and try again, or type instead.';
+      case RecognizerProblem.notStarted:
+        return 'The phone\'s speech service did not start listening. Make sure Speech Services by Google (or another voice-typing app) is installed and enabled, then try again, or type your message.';
       case RecognizerProblem.other:
         return 'Voice input stopped unexpectedly. Please try again or type your message.';
     }

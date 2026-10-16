@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/chat_message.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
+import 'attachment_widgets.dart';
 
 /// A single chat bubble with a timestamp.
 class MessageBubble extends StatelessWidget {
@@ -99,13 +100,20 @@ class MessageBubble extends StatelessWidget {
                         ),
                       ),
                     Text(
-                      message.text,
+                      message.attachments.isEmpty
+                          ? message.text
+                          : message.text
+                              .split('\n')
+                              .where((String l) => !l.startsWith('📎 '))
+                              .join('\n')
+                              .trimRight(),
                       style: TextStyle(
                         color: isUser ? Colors.white : cs.onSurface,
                         height: 1.35,
                         fontSize: 15,
                       ),
                     ),
+                    MessageAttachmentList(items: message.attachments, onUserBubble: isUser),
                   ],
                 ),
               ),
