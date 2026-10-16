@@ -6,6 +6,7 @@ import 'package:almus_ai/controllers/settings_controller.dart';
 import 'package:almus_ai/models/app_settings.dart';
 import 'package:almus_ai/screens/ai_providers_screen.dart';
 import 'package:almus_ai/services/backend_client.dart';
+import 'package:almus_ai/services/settings_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;

@@ -7,6 +7,7 @@ import 'package:almus_ai/data/memory_conversation_repository.dart';
 import 'package:almus_ai/models/app_settings.dart';
 import 'package:almus_ai/models/chat_message.dart';
 import 'package:almus_ai/services/backend_client.dart';
+import 'package:almus_ai/services/settings_store.dart';
 import 'package:almus_ai/services/chat_service.dart';
 import 'package:almus_ai/services/demo_chat_service.dart';
 import 'package:almus_ai/services/routed_chat_service.dart';
