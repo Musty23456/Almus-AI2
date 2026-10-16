@@ -360,7 +360,7 @@ class PlatformSpeechRecognizer implements SpeechRecognizerService {
   void dispose() {
     _session++;
     _clearSession();
-    final SpeechToText? engine = _engine;
+    final SpeechEngine? engine = _engine;
     if (engine != null) {
       unawaited(engine.cancel().catchError((Object _) {}));
     }
