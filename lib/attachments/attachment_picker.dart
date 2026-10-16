@@ -75,14 +75,14 @@ class SystemAttachmentPicker implements AttachmentPickerGateway {
           );
           return shot == null ? <PickedAttachment>[] : <PickedAttachment>[await _fromXFile(shot)];
         case AttachmentSource.pdf:
-          return _files(maxCount, const <String>['pdf']);
+          return await _files(maxCount, const <String>['pdf']);
         case AttachmentSource.spreadsheet:
-          return _files(maxCount, const <String>['csv', 'tsv', 'xlsx']);
+          return await _files(maxCount, const <String>['csv', 'tsv', 'xlsx']);
         case AttachmentSource.document:
         case AttachmentSource.text:
           // Any type is offered: some phones do not know the MIME types of
           // .md or .log files, and every pick is checked afterwards anyway.
-          return _files(maxCount, null);
+          return await _files(maxCount, null);
       }
     } on PlatformException catch (e) {
       throw AttachmentException(_platformMessage(source, e));
