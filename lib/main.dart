@@ -45,8 +45,12 @@ Future<void> main() async {
   localAI.register(TextTools());
   localAI.register(StatisticsTool());
   localAI.register(DocumentUtils());
-  localAI.register(LocalHistoryTool(result.persistent));
-  localAI.register(MemoryTools(result.memory));
+
+  final database = result.database;
+  if (database != null) {
+    localAI.register(LocalHistoryTool(database));
+    localAI.register(MemoryTools(database));
+  }
 
   runApp(
     AlmusApp(
