@@ -58,6 +58,21 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
       - run: flutter test
+      # Some plugins (file_picker) are still compiled against android-34, but
+      # flutter_plugin_android_lifecycle needs 36+. This init script raises the
+      # compileSdk of every plugin module (not the app) to 36 for this build.
+      - name: Raise plugin compileSdk to 36
+        run: |
+          mkdir -p ~/.gradle/init.d
+          cat > ~/.gradle/init.d/compile-sdk.gradle <<'EOF'
+          allprojects {
+            afterEvaluate { p ->
+              if (p != p.rootProject && p.name != 'app' && p.hasProperty('android')) {
+                p.android.compileSdkVersion 36
+              }
+            }
+          }
+          EOF
       - run: flutter build apk --release
 
       - uses: actions/upload-artifact@v4
