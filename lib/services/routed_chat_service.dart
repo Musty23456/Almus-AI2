@@ -12,13 +12,7 @@ import 'demo_chat_service.dart';
 // Local AI integration
 import '../local_ai/local_ai_service.dart';
 import '../local_ai/tool.dart';
-import '../local_ai/tools/calculator.dart';
-import '../local_ai/tools/unit_conversion.dart';
-import '../local_ai/tools/text_tools.dart';
-import '../local_ai/tools/statistics.dart';
-import '../local_ai/tools/local_history.dart';
-import '../local_ai/tools/memory_tools.dart';
-import '../local_ai/tools/document_utils.dart';
+
 
 /// Conversation limits (the backend enforces the same rules).
 const int kMaxHistoryMessages = 20;
