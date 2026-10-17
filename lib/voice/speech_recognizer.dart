@@ -259,7 +259,13 @@ class PlatformSpeechRecognizer implements SpeechRecognizerService {
         },
         localeId: localeId.isEmpty ? null : localeId,
         listenFor: const Duration(seconds: 60),
-        pauseFor: const Duration(seconds: 5),
+        // pauseFor is deprecated on the plugin; provide it via SpeechListenOptions
+        listenOptions: SpeechListenOptions(
+          partialResults: true,
+          cancelOnError: true,
+          listenMode: ListenMode.dictation,
+          pauseFor: const Duration(seconds: 5),
+        ),
       );
     } on Object {
       if (mine == _session) _finish(RecognizerProblem.other);
@@ -443,11 +449,12 @@ class SpeechToTextEngine implements SpeechEngine {
       onResult: (SpeechRecognitionResult r) => onResult(r.recognizedWords, r.finalResult),
       localeId: localeId,
       listenFor: listenFor,
-      pauseFor: pauseFor,
+      // move pauseFor into the listenOptions as the named parameter is deprecated
       listenOptions: SpeechListenOptions(
         partialResults: true,
         cancelOnError: true,
         listenMode: ListenMode.dictation,
+        pauseFor: pauseFor,
       ),
     );
   }
