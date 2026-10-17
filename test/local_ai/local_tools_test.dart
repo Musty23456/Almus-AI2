@@ -40,10 +40,7 @@ void main() {
   group('Text tools', () {
     final t = TextTools();
     test('counts and transform', () async {
-      final res = await t.execute(TextToolsInput(text: 'Hello world\\nThis is a test', transform: 'upper'));
-      expect(res.result.words, 5);
+      final res = await t.execute(TextToolsInput(text: 'Hello world\nThis is a test', transform: 'upper'));
+      expect(res.result.words, 6);
       expect(res.result.lines, 2);
-      expect(res.result.transformed, 'HELLO WORLD\\nTHIS IS A TEST');
-    });
-  });
-}
+      expect(res.result.transformed, 'HELLO WORLD\nTHIS IS A TEST');
