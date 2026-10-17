@@ -1,7 +1,5 @@
 // Tool interface and common types for local tools
 
-import 'package:meta/meta.dart';
-
 /// Result source flag
 enum ResultSource { local, ai, external, cached }
 
