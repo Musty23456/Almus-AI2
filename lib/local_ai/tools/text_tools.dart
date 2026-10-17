@@ -25,10 +25,7 @@ class TextTools extends Tool<TextToolsInput, TextToolsOutput> {
   String get inputSchema => 'TextToolsInput { text: String, transform?: lower|upper|trim }';
 
   @override
-  void validate(TextToolsInput input) {
-    if (input.text == null) throw ToolError('missing_text', 'text is required');
-  }
-
+  void validate(TextToolsInput input) {}
   @override
   Future<ToolResult<TextToolsOutput>> execute(TextToolsInput input) async {
     final text = input.text;
