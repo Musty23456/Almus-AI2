@@ -1,5 +1,4 @@
 import 'registry.dart';
-import 'tool.dart';
 
 /// Router decision result
 class RouteDecision {
