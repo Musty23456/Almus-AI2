@@ -1,3 +1,5 @@
+> **Phase 6 (face recognition pipeline):** no recognition model is bundled (none had a verifiable licence); the pipeline, encrypted storage, consent, scan sound and honest UI are in place. See `PHASE_6_REPORT.md`. The Flutter code of this phase has not been compiled yet.
+
 # ALMUS AI Personal Assistant — Phase 9
 
 > **Phase 4 (multi-provider AI) is the latest work:** the backend can use Gemini, Groq, OpenRouter or any OpenAI-compatible

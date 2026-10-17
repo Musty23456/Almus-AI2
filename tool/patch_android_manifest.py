@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Adds the Android declarations that Phase 6 voice needs to AndroidManifest.xml.
+"""Adds the Android declarations that Phase 6 voice and face scanning need to AndroidManifest.xml.
 
 Run after `flutter create` (the CI workflow does this). Safe to run twice.
 
@@ -22,6 +22,11 @@ DEFAULT = "android/app/src/main/AndroidManifest.xml"
 
 PERMISSIONS = [
     '<uses-permission android:name="android.permission.RECORD_AUDIO"/>',
+    # Phase 6: front camera stills for optional face recognition. Requested
+    # at run time, only when the user opens a scan or enrollment.
+    '<uses-permission android:name="android.permission.CAMERA"/>',
+    # The camera is optional: the app still installs on phones without one.
+    '<uses-feature android:name="android.hardware.camera" android:required="false"/>',
 ]
 
 # Phase 1: do not let Android copy private app data into backups.

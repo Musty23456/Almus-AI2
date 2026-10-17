@@ -54,6 +54,12 @@ class ManifestPatchTest(unittest.TestCase):
         self.assertIn("PROCESS_TEXT", out)
         self.assertEqual(out.count("<queries>"), 1)
 
+    def test_adds_camera_permission_as_optional_feature(self):
+        out = self.m.patch(MANIFEST)
+        self.assertIn("android.permission.CAMERA", out)
+        self.assertIn('android:name="android.hardware.camera" android:required="false"', out)
+        self.assertEqual(out.count("android.permission.CAMERA"), 1)
+
     def test_is_idempotent(self):
         once = self.m.patch(MANIFEST)
         self.assertEqual(self.m.patch(once), once)

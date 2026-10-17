@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.14.0+14 — Phase 6b: optional cloud face verification (Luxand, 1:1) (Dart not compiled or run; Backend tests 120/120)
+
+- Backend: `/v1/face/status`, `/v1/face/person` (+ `/photos`, `/verify`, DELETE). Luxand token stays on the server; verify disabled until `LUXAND_MIN_SIMILARITY` is set; unknown answers = not verified; no photo/uuid/score is logged.
+- App: Settings → **Cloud face verification**. Separate consent (off by default), one enrolled person, 1:1 verify, delete that is only reported when the service confirmed it. Photos are uploaded through the backend; the on-device face code is unchanged and still never uploads.
+- Privacy test extended: network allowed only in `lib/face/cloud/cloud_face_api.dart`; on-device face code must not import the cloud code.
+- See `PHASE_6B_REPORT.md` and `docs/CLOUD_FACE_VERIFICATION.md`.
+
 ## 0.12.0+12 — Phase 4: Multi-provider AI orchestration and fallback (Dart code not compiled or run; see PHASE_4_REPORT.md)
 
 ### Backend (0.4.0, executed tests: 105/105)
