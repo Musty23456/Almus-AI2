@@ -259,13 +259,7 @@ class PlatformSpeechRecognizer implements SpeechRecognizerService {
         },
         localeId: localeId.isEmpty ? null : localeId,
         listenFor: const Duration(seconds: 60),
-        // pauseFor is deprecated on the plugin; provide it via SpeechListenOptions
-        listenOptions: SpeechListenOptions(
-          partialResults: true,
-          cancelOnError: true,
-          listenMode: ListenMode.dictation,
-          pauseFor: const Duration(seconds: 5),
-        ),
+        pauseFor: const Duration(seconds: 5),
       );
     } on Object {
       if (mine == _session) _finish(RecognizerProblem.other);
