@@ -44,3 +44,6 @@ void main() {
       expect(res.result.words, 6);
       expect(res.result.lines, 2);
       expect(res.result.transformed, 'HELLO WORLD\nTHIS IS A TEST');
+    });
+  });
+}
