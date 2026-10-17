@@ -1,7 +1,6 @@
 import 'package:almus_ai/controllers/settings_controller.dart';
 import 'package:almus_ai/face/cloud/cloud_face_api.dart';
 import 'package:almus_ai/face/cloud/cloud_face_controller.dart';
-import 'package:almus_ai/models/app_settings.dart';
 import 'package:almus_ai/screens/cloud_face_screen.dart';
 import 'package:almus_ai/services/settings_store.dart';
 import 'package:flutter/material.dart';
