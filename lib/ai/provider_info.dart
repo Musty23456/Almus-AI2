@@ -1,3 +1,5 @@
+library ai.provider_info;
+
 /// Provider information reported by the backend (Phase 4). The app never sees API keys;
 /// it only sees what the backend chooses to report.
 
