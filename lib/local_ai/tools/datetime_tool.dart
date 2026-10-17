@@ -1,5 +1,3 @@
-import 'package:intl/intl.dart';
-
 import '../tool.dart';
 
 class DateTimeInput {
