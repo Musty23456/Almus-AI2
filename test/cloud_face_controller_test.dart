@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:almus_ai/face/cloud/cloud_face_api.dart';
 import 'package:almus_ai/face/cloud/cloud_face_controller.dart';

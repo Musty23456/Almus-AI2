@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import 'package:almus_ai/face/cloud/cloud_face_api.dart';
 import 'package:almus_ai/face/cloud/cloud_face_controller.dart';
 import 'package:almus_ai/face/cloud/cloud_face_storage.dart';
-import 'package:almus_ai/face/face_models.dart';
 import 'package:almus_ai/face/face_ports.dart';
 import 'package:almus_ai/models/app_settings.dart';
 
