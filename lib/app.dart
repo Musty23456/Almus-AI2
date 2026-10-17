@@ -123,7 +123,7 @@ class _AlmusAppState extends State<AlmusApp> {
   late final BackendClient _backend = widget.backendClient ?? BackendClient();
   late final ConversationRepository _repository =
       widget.repository ?? MemoryConversationRepository();
-  late final MemoryRepository _memory_repository =
+  late final MemoryRepository _memoryRepository =
       widget.memoryRepository ?? VolatileMemoryRepository();
   late final RoutingPreferencesController _routing =
       RoutingPreferencesController(widget.routingStore ?? PrefsRoutingPreferencesStore());
@@ -190,7 +190,7 @@ class _AlmusAppState extends State<AlmusApp> {
                 settings: _settings,
                 backend: _backend,
                 repository: _repository,
-                memoryRepository: _memory_repository,
+                memoryRepository: _memoryRepository,
                 persistentHistory: widget.persistentHistory,
                 speechRecognizer: widget.speechRecognizer,
                 speechSynthesizer: widget.speechSynthesizer,
