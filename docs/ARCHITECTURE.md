@@ -31,7 +31,7 @@ Android phone (Flutter app)                         Your server (Node.js, no dep
 | Voice | `voice/*` | `speech_to_text` + `flutter_tts` behind interfaces, a state machine and `VoiceController`. Stops on background, lock and conversation change. |
 | Lock | `security/*`, `widgets/app_lock_gate.dart`, `screens/lock_screen.dart` | `AppLockController` decides visibility: content shows only after Android's BiometricPrompt reports success (or the lock is off). `FLAG_SECURE` via the `almus.ai/privacy` channel (Kotlin added by `tool/patch_android_biometric.py`). |
 | Avatar | `avatar/*`, `widgets/robot_avatar.dart` | Code-drawn 2.5D avatar, six states, capped at 30 fps; optional `assets/avatar/avatar_profile.json`. |
-| Face (prototype) | `screens/face_enrollment_screen.dart` | Camera capture → ML Kit **detection** → single-face check → private copy in the app support dir. **Not recognition, not used for unlock.** |
+| Face recognition (Phase 6) | `lib/face/`, `screens/face_recognition_screen.dart` | Camera still -> ML Kit detection -> quality gate -> alignment -> embedding (model-pluggable, none bundled) -> calibrated match against an encrypted template vault. **Not used for unlock.** |
 
 ### Which operations need the network?
 Only: sending a chat message in live mode (`BackendClient.chat`) and the **Test connection** button in Settings. Opening the app, history, search, memory, settings, lock, avatar and local storage never call the network (verified by grep: the only `BackendClient` call sites are `RoutedChatService.reply` and `SettingsScreen._test`). Demo mode works without any server.

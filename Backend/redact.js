@@ -31,7 +31,7 @@ export function createRedactor(secrets = []) {
 
 /** Collects every secret value the configuration holds so they can be redacted. */
 export function secretsOf(config) {
-  const list = [config.accessToken, config.geminiApiKey];
+  const list = [config.accessToken, config.geminiApiKey, config.face?.token];
   for (const p of Object.values(config.providers ?? {})) list.push(p?.apiKey);
   return list.filter(Boolean);
 }

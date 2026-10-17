@@ -13,7 +13,7 @@
 ## Security / privacy
 * **Access token is stored unencrypted** in app-private SharedPreferences. Recommended Phase 2 change: `flutter_secure_storage` (Android Keystore). Not done now to avoid a new dependency without device testing.
 * **SQLite database is not encrypted.** The lock only hides the UI. Anyone with root/adb access to an unlocked device can read it.
-* **Face sample** (`almus_face_sample.jpg`) is a plain JPEG in the app-private directory. Face detection can be fooled by a photograph. It must never be used as an authentication factor. `allowBackup=false` keeps it out of cloud backups.
+* **Face recognition (Phase 6)** has no bundled model, so it cannot recognise anyone yet; it has no liveness protection and is not a security feature. The Phase 9 face photo is deleted automatically. See `PHASE_6_REPORT.md`.
 * **Chat text is sent to your backend and to Google Gemini** in live mode. The sensitive-data filter protects *saved memories* only; it does not filter what you type in chat.
 * `/health` is public and reveals the model name, whether a Gemini key is configured, and whether auth is required. When the server is misconfigured, the 503 message names which environment variables are missing (never their values).
 * Backend rate limits and the daily cap are in memory and reset on restart/redeploy; with several instances each has its own counters.

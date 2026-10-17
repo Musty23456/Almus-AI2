@@ -102,6 +102,24 @@ export function loadConfig(env = process.env) {
     allowUserModelSelection: bool(env.AI_ALLOW_USER_MODEL_SELECTION, true),
     checkRateLimitPerMinute: int(env.CHECK_RATE_LIMIT_PER_MINUTE, 6, 1, 100),
 
+    // ---- Phase 6b: Luxand.cloud 1:1 face verification (optional). The token stays on the server. ----
+    face: {
+      token: (env.LUXAND_API_TOKEN ?? '').trim(),
+      baseUrl: trimUrl(env.LUXAND_BASE_URL, 'https://api.luxand.cloud'),
+      // No default on purpose: the operator must measure a threshold. null = matching disabled.
+      minSimilarity: (() => {
+        const n = Number.parseFloat(env.LUXAND_MIN_SIMILARITY ?? '');
+        return Number.isFinite(n) && n > 0 && n <= 1 ? n : null;
+      })(),
+      // Only for calibration. Leave false in normal use.
+      returnScore: bool(env.FACE_RETURN_SCORE, false),
+      maxBodyBytes: int(env.FACE_MAX_BODY_BYTES, 1500000, 50000, 6000000),
+      maxPhotoBytes: int(env.FACE_MAX_PHOTO_BYTES, 1000000, 20000, 4000000),
+      perMinute: int(env.FACE_RATE_LIMIT_PER_MINUTE, 10, 1, 100),
+      dailyLimit: int(env.FACE_DAILY_LIMIT, 200, 1, 100000),
+      timeoutMs: int(env.FACE_UPSTREAM_TIMEOUT_MS, 20000, 1000, 60000),
+    },
+
     // Per-provider settings. API keys are read here and nowhere else.
     providers: {
       gemini: {

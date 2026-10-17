@@ -9,6 +9,7 @@ import { createProviderRegistry } from './ai/registry.js';
 import { createHealthTracker } from './ai/health.js';
 import { createOrchestrator, OrchestratorError } from './ai/orchestrator.js';
 import { abortableSleep } from './ai/backoff.js';
+import { createLuxandClient, decodePhoto, isValidFaceUuid } from './luxand.js';
 
 export const SERVICE_VERSION = '0.4.0';
 
@@ -89,6 +90,10 @@ export function createApp({
   // Health checks and model lists call the upstream providers, so they get a much tighter per-client limit.
   const checkLimiter = createRateLimiter({ perMinute: config.checkRateLimitPerMinute, dailyLimit: 1_000_000, now });
 
+  // Phase 6b: cloud face verification. Its own, stricter limits because every call is a paid third-party request.
+  const luxand = createLuxandClient({ config, fetchImpl });
+  const faceLimiter = createRateLimiter({ perMinute: config.face.perMinute, dailyLimit: config.face.dailyLimit, now });
+
   function clientKey(req) {
     if (config.trustProxy) {
       const forwarded = String(req.headers['x-forwarded-for'] ?? '').split(',').map((s) => s.trim()).filter(Boolean);
@@ -118,14 +123,14 @@ export function createApp({
   }
 
   /** Reads and parses an optional JSON body (empty body = {}). */
-  async function readJsonBody(req, { optional = false } = {}) {
+  async function readJsonBody(req, { optional = false, limit = config.maxBodyBytes } = {}) {
     const contentType = String(req.headers['content-type'] ?? '').toLowerCase();
     const declared = Number.parseInt(req.headers['content-length'] ?? '0', 10);
     if (optional && (!Number.isFinite(declared) || declared === 0) && !req.headers['transfer-encoding']) return {};
     if (!contentType.startsWith('application/json')) {
       throw new ApiError(415, 'unsupported_media_type', 'Content-Type must be application/json.');
     }
-    const raw = await readBody(req, config.maxBodyBytes);
+    const raw = await readBody(req, limit);
     if (optional && raw.length === 0) return {};
     try {
       return JSON.parse(raw.toString('utf8'));
@@ -161,6 +166,67 @@ export function createApp({
       processing: 'remote',
       route: result.route,
     };
+  }
+
+
+  /** Face routes ALWAYS require the app access token, even if ALLOW_UNAUTHENTICATED is on: this is a security feature. */
+  function faceGuard(req) {
+    const rate = faceLimiter.checkClient(clientKey(req));
+    if (!rate.ok) {
+      throw new ApiError(429, 'rate_limited', 'Too many face requests. Please slow down.', { retryAfterSeconds: rate.retryAfterSeconds });
+    }
+    if (!config.accessToken) {
+      throw new ApiError(503, 'face_requires_access_token', 'Face routes need APP_ACCESS_TOKEN to be set on the backend.');
+    }
+    const match = /^Bearer\s+(.+)$/i.exec(String(req.headers.authorization ?? ''));
+    if (!match || !tokenMatches(match[1].trim(), config.accessToken)) {
+      throw new ApiError(401, 'unauthorized', 'Missing or invalid access token.');
+    }
+  }
+
+  function takeFaceDaily() {
+    const daily = faceLimiter.takeDaily();
+    if (!daily.ok) {
+      throw new ApiError(429, 'daily_limit_reached', 'The daily limit for face requests was reached.', { retryAfterSeconds: daily.retryAfterSeconds });
+    }
+  }
+
+  async function readFacePhoto(req) {
+    const body = await readJsonBody(req, { limit: config.face.maxBodyBytes });
+    if (body === null || typeof body !== 'object' || Array.isArray(body)) throw bad('Request body must be a JSON object.');
+    return decodePhoto(body.photo, config.face.maxPhotoBytes);
+  }
+
+  function faceUuid(raw) {
+    if (!isValidFaceUuid(raw)) throw bad('Invalid person id.', 'invalid_person');
+    return raw;
+  }
+
+  async function handleFace(req, path, method, signal) {
+    faceGuard(req);
+    if (path === '/v1/face/status') {
+      if (method !== 'GET') throw new ApiError(405, 'method_not_allowed', 'Use GET.');
+      return luxand.status();
+    }
+    if (path === '/v1/face/person') {
+      if (method !== 'POST') throw new ApiError(405, 'method_not_allowed', 'Use POST.');
+      const photo = await readFacePhoto(req);
+      takeFaceDaily();
+      return luxand.enroll(photo, signal);
+    }
+    const m = /^\/v1\/face\/person\/([^/]+)(?:\/(photos|verify))?$/.exec(path);
+    if (!m) throw new ApiError(404, 'not_found', 'Unknown face endpoint.');
+    const uuid = faceUuid(decodeURIComponent(m[1]));
+    const action = m[2];
+    if (!action) {
+      if (method !== 'DELETE') throw new ApiError(405, 'method_not_allowed', 'Use DELETE.');
+      takeFaceDaily();
+      return luxand.remove(uuid, signal);
+    }
+    if (method !== 'POST') throw new ApiError(405, 'method_not_allowed', 'Use POST.');
+    const photo = await readFacePhoto(req);
+    takeFaceDaily();
+    return action === 'photos' ? luxand.addPhoto(uuid, photo, signal) : luxand.verify(uuid, photo, signal);
   }
 
   async function handleModels(req, signal) {
@@ -271,6 +337,8 @@ export function createApp({
       } else if (path === '/v1/providers/check') {
         if (method !== 'POST') throw new ApiError(405, 'method_not_allowed', 'Use POST.');
         sendJson(res, 200, await handleProviderCheck(req, abort.signal));
+      } else if (path === '/v1/face/status' || path === '/v1/face/person' || path.startsWith('/v1/face/person/')) {
+        sendJson(res, 200, await handleFace(req, path, method, abort.signal));
       } else if (/^\/v1\/providers\/[^/]+\/models$/.test(path)) {
         if (method !== 'GET') throw new ApiError(405, 'method_not_allowed', 'Use GET.');
         sendJson(res, 200, await handleProviderModels(req, decodeURIComponent(path.split('/')[3]), abort.signal));

@@ -23,6 +23,11 @@ services:
         sync: false
       - key: APP_ACCESS_TOKEN
         sync: false
+      # Optional cloud face verification (Phase 6b). Leave unset to keep it off.
+      - key: LUXAND_API_TOKEN
+        sync: false
+      - key: LUXAND_MIN_SIMILARITY
+        sync: false
       - key: GEMINI_MODEL
         value: gemini-flash-latest
       - key: TRUST_PROXY

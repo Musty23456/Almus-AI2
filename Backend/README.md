@@ -105,3 +105,22 @@ The app sends only text it extracted on the phone. Files, images, device paths, 
 `MAX_ATTACHMENT_TOTAL_CHARS=60000`, `MAX_BODY_BYTES=400000`. The text is appended to the newest user message between
 `BEGIN/END ATTACHED FILE` lines and the model is told to treat it as data, not instructions. Attachment text is never logged.
 The response gains `attachmentsUsed`.
+
+## Phase 6b: cloud face verification (optional, Luxand.cloud)
+
+Routes (all need `Authorization: Bearer <APP_ACCESS_TOKEN>`; they are refused if no token is configured):
+
+| Method | Path | Body | Result |
+|---|---|---|---|
+| GET | `/v1/face/status` | none | `{available, calibrated}` |
+| POST | `/v1/face/person` | `{photo}` (base64 JPEG) | `{uuid}` |
+| POST | `/v1/face/person/:uuid/photos` | `{photo}` | `{added:true}` |
+| POST | `/v1/face/person/:uuid/verify` | `{photo}` | `{verified}` (+ `similarity` only if `FACE_RETURN_SCORE=true`) |
+| DELETE | `/v1/face/person/:uuid` | none | `{deleted:true}` or an error (never a false "deleted") |
+
+Rules built in: the Luxand token never leaves the server; no real name is sent (a random label is used);
+verify is disabled until `LUXAND_MIN_SIMILARITY` is set; any answer from Luxand that is not understood is "not verified";
+nothing about photos, uuids or scores is logged.
+
+Not verified against a real Luxand account yet: the exact response field (`similarity`) of the verify call and the
+delete endpoint (`DELETE /person/{uuid}`). Make one real call each before relying on them.
