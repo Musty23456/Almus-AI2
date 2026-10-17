@@ -17,7 +17,8 @@ import '../voice/voice_settings.dart';
 import '../voice/voice_settings_store.dart';
 import 'ai_providers_screen.dart';
 import 'avatar_lab_screen.dart';
-import 'face_enrollment_screen.dart';
+import 'cloud_face_screen.dart';
+import 'face_recognition_screen.dart';
 import '../widgets/backup_restore_section.dart';
 import '../widgets/glow_card.dart';
 import '../widgets/screen_header.dart';
@@ -460,17 +461,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
         ],
-        const SectionLabel('Face security · Phase 9'),
+        const SectionLabel('Face recognition · Phase 6'),
         GlowCard(
           child: ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const CircleAvatar(child: Icon(Icons.face_retouching_natural)),
-            title: const Text('Face detection & enrollment'),
-            subtitle: const Text('Capture a private face sample on this device'),
+            title: const Text('Face recognition'),
+            subtitle: const Text('Optional, on this phone only. Not a lock.'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
-                builder: (_) => const FaceEnrollmentScreen(),
+                builder: (_) => const FaceRecognitionScreen(),
+              ),
+            ),
+          ),
+        ),
+        GlowCard(
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const CircleAvatar(child: Icon(Icons.cloud_outlined)),
+            title: const Text('Cloud face verification'),
+            subtitle: const Text(
+              'Optional. Uploads face photos via your backend (Luxand). Off until you agree.',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => CloudFaceScreen(settings: widget.settings),
               ),
             ),
           ),
