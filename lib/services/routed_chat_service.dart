@@ -62,6 +62,7 @@ class RoutedChatService implements AttachmentCapableChatService, ReplyProvenance
     required this.backend,
     ChatService? demo,
     this.routing,
+    this.localAI,
   }) : demo = demo ?? DemoChatService();
 
   final SettingsController settings;
@@ -71,12 +72,29 @@ class RoutedChatService implements AttachmentCapableChatService, ReplyProvenance
   /// Phase 4: the user's provider choices (null = backend defaults, nothing extra is sent).
   final RoutingPreferencesController? routing;
 
+  /// Phase 5: deterministic local tools. When present, they are preferred before
+  /// falling back to the configured backend or demo engine.
+  final LocalAIService? localAI;
+
   ReplyProvenance? _lastProvenance;
 
   @override
   ReplyProvenance? get lastProvenance => _lastProvenance;
 
   Map<String, Object?>? get _routingJson => routing?.value.toRequestJson();
+
+  Future<String?> _tryLocalReply(String userMessage) async {
+    if (localAI == null) return null;
+    try {
+      final ToolResult<dynamic> result = await localAI!.run(userMessage);
+      final Object? value = result.result;
+      _lastProvenance = null;
+      if (value == null) return null;
+      return value.toString();
+    } on ToolError {
+      return null;
+    }
+  }
 
   @override
   bool get isDemo => !settings.value.isConfigured;
@@ -99,7 +117,11 @@ class RoutedChatService implements AttachmentCapableChatService, ReplyProvenance
     List<ChatMessage> history = const <ChatMessage>[],
     String? memoryContext,
     required List<ChatAttachment> attachments,
-  }) {
+  }) async {
+    final String? localReply = await _tryLocalReply(userMessage);
+    if (localReply != null) {
+      return localReply;
+    }
     if (isDemo) {
       _lastProvenance = null;
       return demo.reply(userMessage, history: history);
@@ -125,7 +147,11 @@ class RoutedChatService implements AttachmentCapableChatService, ReplyProvenance
     String userMessage, {
     List<ChatMessage> history = const <ChatMessage>[],
     String? memoryContext,
-  }) {
+  }) async {
+    final String? localReply = await _tryLocalReply(userMessage);
+    if (localReply != null) {
+      return localReply;
+    }
     if (isDemo) {
       _lastProvenance = null;
       return demo.reply(userMessage, history: history);
